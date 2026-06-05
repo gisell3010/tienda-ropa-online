@@ -15,12 +15,11 @@ public class Producto {
     private String nombre;
 
     @Column(name = "descripcion", columnDefinition = "TEXT")
+    @Transient
     private String descripcion;
-
     @Column(name = "precio", nullable = false)
     private Double precio;
 
-    // Relaciones con Categoría y Estilo (se conectan usando las clases que ya creaste)
     @ManyToOne
     @JoinColumn(name = "cat_id", nullable = false)
     private Categoria categoria;

@@ -1,27 +1,32 @@
 -- =========================================================
+-- SCRIPT 06 - VISTAS
+-- Proyecto: Tienda de ropa online
+-- =========================================================
+
+
+-- =========================================================
 -- VISTA SIMPLE: INVENTARIO
 -- =========================================================
 
 CREATE OR REPLACE VIEW vw_inventario_simple AS
 SELECT
-|    inv_id,
+    inv_id,
     pro_id,
     stock
 FROM inventarios;
 
--- Llamado
-SELECT * FROM vw_inventario_simple;
-
 
 -- =========================================================
--- VISTA COMPLEJA: CATÁLOGO DE PRODUCTOS
+-- VISTA COMPLEJA: CATÁLOGO DETALLADO DE PRODUCTOS
+-- Muestra producto por talla y color
 -- =========================================================
 
-CREATE OR REPLACE VIEW vw_catalogo_productos AS
+CREATE OR REPLACE VIEW vw_catalogo_productos_detalle AS
 SELECT
     p.pro_id,
     p.nombre AS producto,
     p.precio,
+    p.activo,
     c.nombre AS categoria,
     e.nombre AS estilo,
     i.inv_id,
@@ -38,53 +43,71 @@ INNER JOIN categorias c ON c.cat_id = p.cat_id
 INNER JOIN estilos e ON e.est_id = p.est_id
 INNER JOIN inventarios i ON i.pro_id = p.pro_id
 INNER JOIN tallas t ON t.tal_id = i.tal_id
-INNER JOIN colores co ON co.col_id = i.col_id;
-
--- Llamados
-SELECT * FROM vw_catalogo_productos;
-
-SELECT *
-FROM vw_catalogo_productos
-WHERE estado_producto = 'AGOTADO';
-
-SELECT *
-FROM vw_catalogo_productos
-WHERE permite_interaccion = TRUE;
+INNER JOIN colores co ON co.col_id = i.col_id
+WHERE p.activo = TRUE;
 
 
 -- =========================================================
--- VISTA DE SEGURIDAD: VENTAS
+-- VISTA COMPLEJA: CATÁLOGO GENERAL
+-- Una fila por producto
 -- =========================================================
 
-CREATE OR REPLACE VIEW vw_seguridad_ventas AS
+CREATE OR REPLACE VIEW vw_catalogo_productos AS
+SELECT
+    p.pro_id,
+    p.nombre AS producto,
+    p.precio,
+    p.activo,
+    c.nombre AS categoria,
+    e.nombre AS estilo,
+    COALESCE(SUM(i.stock), 0) AS stock_total,
+    fn_estado_producto(COALESCE(SUM(i.stock), 0)::INT) AS estado_producto,
+    CASE
+        WHEN COALESCE(SUM(i.stock), 0) = 0 THEN FALSE
+        ELSE TRUE
+    END AS permite_interaccion
+FROM productos p
+INNER JOIN categorias c ON c.cat_id = p.cat_id
+INNER JOIN estilos e ON e.est_id = p.est_id
+LEFT JOIN inventarios i ON i.pro_id = p.pro_id
+WHERE p.activo = TRUE
+GROUP BY
+    p.pro_id,
+    p.nombre,
+    p.precio,
+    p.activo,
+    c.nombre,
+    e.nombre;
+
+
+-- =========================================================
+-- VISTA: RESUMEN DE VENTAS
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_resumen_ventas AS
 SELECT
     v.ven_id,
     p.nombre AS cliente,
     r.nombre AS rol,
     v.fecha,
-    COUNT(d.det_id) AS cantidad_productos,
-    SUM(d.cantidad * d.precio_unitario) AS total_venta
+    COALESCE(SUM(d.cantidad), 0) AS unidades_vendidas,
+    COALESCE(SUM(d.cantidad * d.precio_unitario), 0) AS total_venta
 FROM ventas v
 INNER JOIN personas p ON p.per_id = v.per_id
 INNER JOIN roles r ON r.rol_id = p.rol_id
-INNER JOIN detalle_ventas d ON d.ven_id = v.ven_id
+LEFT JOIN detalle_ventas d ON d.ven_id = v.ven_id
 GROUP BY
     v.ven_id,
     p.nombre,
     r.nombre,
     v.fecha;
 
--- Llamados
-SELECT * FROM vw_seguridad_ventas;
-
-SELECT *
-FROM vw_seguridad_ventas
-ORDER BY total_venta DESC;
-
 
 -- =========================================================
 -- VISTA MATERIALIZADA: RESUMEN DE VENTAS POR PRODUCTO
 -- =========================================================
+
+DROP MATERIALIZED VIEW IF EXISTS mv_resumen_ventas_productos;
 
 CREATE MATERIALIZED VIEW mv_resumen_ventas_productos AS
 SELECT
@@ -99,8 +122,3 @@ LEFT JOIN detalle_ventas d ON d.inv_id = i.inv_id
 GROUP BY
     p.pro_id,
     p.nombre;
-
--- Llamados
-SELECT * FROM mv_resumen_ventas_productos;
-
-REFRESH MATERIALIZED VIEW mv_resumen_ventas_productos;

@@ -1,77 +1,95 @@
 -- =========================================================
--- SCRIPT 02 - CATÁLOGO E INVENTARIO
+-- SCRIPT 02 - CATÁLOGO BASE
 -- Proyecto: Tienda de ropa online
--- Responsable: Base de datos
 -- =========================================================
 
--- Este script contiene las tablas necesarias para manejar
--- el catálogo de productos y el inventario inicial del Sprint 1.
-
 -- =========================================================
--- TABLA CATEGORIAS
+-- INSERT CATEGORÍAS
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS categorias (
-    cat_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE
-);
+INSERT INTO categorias (nombre) VALUES
+('Superior'),
+('Inferior'),
+('Calzado')
+ON CONFLICT (nombre) DO NOTHING;
+
 
 -- =========================================================
--- TABLA ESTILOS
+-- INSERT ESTILOS
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS estilos (
-    est_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE
-);
+INSERT INTO estilos (nombre) VALUES
+('Deportivo'),
+('Elegante'),
+('Urban'),
+('Casual')
+ON CONFLICT (nombre) DO NOTHING;
+
 
 -- =========================================================
--- TABLA TALLAS
+-- INSERT MÉTODOS DE PAGO
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS tallas (
-    tal_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(5) NOT NULL UNIQUE
-);
+INSERT INTO metodos_pago (nombre) VALUES
+('Tarjeta de crédito'),
+('Tarjeta de débito'),
+('Transferencia bancaria'),
+('PSE'),
+('Bre-B')
+ON CONFLICT (nombre) DO NOTHING;
+
 
 -- =========================================================
--- TABLA COLORES
+-- INSERT TALLAS
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS colores (
-    col_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(30) NOT NULL UNIQUE
-);
+INSERT INTO tallas (nombre) VALUES
+('XS'),
+('S'),
+('M'),
+('L'),
+('XL'),
+('35'),
+('36'),
+('37'),
+('38'),
+('39'),
+('40'),
+('41'),
+('42'),
+('43'),
+('44')
+ON CONFLICT (nombre) DO NOTHING;
+
 
 -- =========================================================
--- TABLA PRODUCTOS
+-- INSERT COLORES
 -- =========================================================
 
-CREATE TABLE IF NOT EXISTS productos (
-    pro_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    precio NUMERIC(10,2) NOT NULL CHECK (precio >= 0),
-    cat_id INT NOT NULL,
-    est_id INT NOT NULL,
-
-    FOREIGN KEY (cat_id) REFERENCES categorias(cat_id),
-    FOREIGN KEY (est_id) REFERENCES estilos(est_id)
-);
-
--- =========================================================
--- TABLA INVENTARIOS
--- =========================================================
-
-CREATE TABLE IF NOT EXISTS inventarios (
-    inv_id SERIAL PRIMARY KEY,
-    pro_id INT NOT NULL,
-    stock INT NOT NULL CHECK (stock >= 0),
-    tal_id INT NOT NULL,
-    col_id INT NOT NULL,
-
-    CONSTRAINT uq_producto_talla_color UNIQUE (pro_id, tal_id, col_id),
-
-    FOREIGN KEY (pro_id) REFERENCES productos(pro_id),
-    FOREIGN KEY (tal_id) REFERENCES tallas(tal_id),
-    FOREIGN KEY (col_id) REFERENCES colores(col_id)
-);
+INSERT INTO colores (nombre) VALUES
+('Negro'),
+('Blanco'),
+('Rojo'),
+('Azul'),
+('Verde'),
+('Amarillo'),
+('Naranja'),
+('Morado'),
+('Rosado'),
+('Gris'),
+('Café'),
+('Beige'),
+('Vinotinto'),
+('Turquesa'),
+('Dorado'),
+('Plateado'),
+('Fucsia'),
+('Lila'),
+('Azul marino'),
+('Celeste'),
+('Oliva'),
+('Mostaza'),
+('Coral'),
+('Terracota'),
+('Crema')
+ON CONFLICT (nombre) DO NOTHING;

@@ -129,9 +129,11 @@ CREATE TABLE personas_direcciones (
 CREATE TABLE productos (
     pro_id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
-    precio NUMERIC(10,2) NOT NULL CHECK (precio >= 0),
+    precio NUMERIC(10,2) NOT NULL CHECK (precio > 0),
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
     cat_id INT NOT NULL,
     est_id INT NOT NULL,
+    CONSTRAINT uq_producto_categoria_estilo UNIQUE (nombre, cat_id, est_id),
     FOREIGN KEY (cat_id) REFERENCES categorias(cat_id),
     FOREIGN KEY (est_id) REFERENCES estilos(est_id)
 );
@@ -159,7 +161,7 @@ CREATE TABLE inventarios (
 CREATE TABLE ventas (
     ven_id SERIAL PRIMARY KEY,
     per_id INT NOT NULL,
-    fecha DATE NOT NULL,
+    fecha DATE NOT NULL DEFAULT CURRENT_DATE,
     FOREIGN KEY (per_id) REFERENCES personas(per_id)
 );
 
@@ -172,7 +174,7 @@ CREATE TABLE detalle_ventas (
     ven_id INT NOT NULL,
     inv_id INT NOT NULL,
     cantidad INT NOT NULL CHECK (cantidad > 0),
-    precio_unitario NUMERIC(10,2) NOT NULL CHECK (precio_unitario >= 0),
+    precio_unitario NUMERIC(10,2) NOT NULL CHECK (precio_unitario > 0),
     FOREIGN KEY (ven_id) REFERENCES ventas(ven_id),
     FOREIGN KEY (inv_id) REFERENCES inventarios(inv_id)
 );
@@ -186,7 +188,8 @@ CREATE TABLE pagos (
     ven_id INT NOT NULL,
     met_id INT NOT NULL,
     monto NUMERIC(10,2) NOT NULL CHECK (monto > 0),
-    fecha DATE NOT NULL,
+    fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT uq_pago_venta UNIQUE (ven_id),
     FOREIGN KEY (ven_id) REFERENCES ventas(ven_id),
     FOREIGN KEY (met_id) REFERENCES metodos_pago(met_id)
 );
@@ -196,6 +199,6 @@ CREATE TABLE pagos (
 -- =========================================
 
 INSERT INTO roles (nombre) VALUES
-('Administrador'),
-('Cliente');
+('ADMIN'),
+('CLIENTE');
 

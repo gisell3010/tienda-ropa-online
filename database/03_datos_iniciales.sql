@@ -1,7 +1,12 @@
-=========================================
+-- =========================================================
+-- SCRIPT 03 - DATOS INICIALES
+-- Proyecto: Tienda de ropa online
+-- =========================================================
+
+-- =========================================================
 -- INSERT DEPARTAMENTOS
 -- Códigos DANE
--- =========================================
+-- =========================================================
 
 INSERT INTO departamentos (dep_id, nombre) VALUES
 ('91', 'Amazonas'),
@@ -36,12 +41,14 @@ INSERT INTO departamentos (dep_id, nombre) VALUES
 ('73', 'Tolima'),
 ('76', 'Valle del Cauca'),
 ('97', 'Vaupés'),
-('99', 'Vichada');
+('99', 'Vichada')
+ON CONFLICT (dep_id) DO NOTHING;
 
--- =========================================
+
+-- =========================================================
 -- INSERT MUNICIPIOS
 -- Códigos DANE
--- =========================================
+-- =========================================================
 
 INSERT INTO municipios (mun_id, nombre, dep_id) VALUES
 ('91001', 'Leticia', '91'),
@@ -76,92 +83,5 @@ INSERT INTO municipios (mun_id, nombre, dep_id) VALUES
 ('73001', 'Ibagué', '73'),
 ('76001', 'Cali', '76'),
 ('97001', 'Mitú', '97'),
-('99001', 'Puerto Carreño', '99');
-
-/*
--- =========================================
--- INSERT CATEGORIAS
--- =========================================
-
-INSERT INTO categorias (nombre) VALUES
-('Camisetas'),
-('Pantalones'),
-('Chaquetas'),
-('Vestidos'),
-('Ropa deportiva');
-
--- =========================================
--- INSERT ESTILOS
--- =========================================
-
-INSERT INTO estilos (nombre) VALUES
-('Deportivo'),
-('Elegante'),
-('Casual');
-
--- =========================================
--- INSERT METODOS_PAGO
--- =========================================
-
-INSERT INTO metodos_pago (nombre) VALUES
-('Tarjeta de crédito'),
-('Tarjeta de débito'),
-('Transferencia bancaria'),
-('PSE'),
-('Bre-B');
-
--- =========================================
--- INSERT TALLAS
--- =========================================
-
-INSERT INTO tallas (nombre) VALUES
--- Ropa
-('XS'),
-('S'),
-('M'),
-('L'),
-('XL'),
-
--- Calzado 
-('35'),
-('36'),
-('37'),
-('38'),
-('39'),
-('40'),
-('41'),
-('42'),
-('43'),
-('44');
-
--- =========================================
--- INSERT COLORES
--- =========================================
-
-INSERT INTO colores (nombre) VALUES
-('Negro'),
-('Blanco'),
-('Rojo'),
-('Azul'),
-('Verde'),
-('Amarillo'),
-('Naranja'),
-('Morado'),
-('Rosado'),
-('Gris'),
-('Café'),
-('Beige'),
-('Vinotinto'),
-('Turquesa'),
-('Dorado'),
-('Plateado'),
-('Fucsia'),
-('Lila'),
-('Azul marino'),
-('Celeste'),
-('Oliva'),
-('Mostaza'),
-('Coral'),
-('Terracota'),
-('Crema');
-*/
+('99001', 'Puerto Carreño', '99')
+ON CONFLICT (mun_id) DO NOTHING;

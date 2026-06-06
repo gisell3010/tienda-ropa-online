@@ -1,224 +1,297 @@
---VALIDACIONES BASICAS--
--- Validar correo de persona
-CREATE OR REPLACE FUNCTION fn_validar_correo(
-    p_correo VARCHAR
-)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_correo IS NULL OR TRIM(p_correo) = '' THEN
-        RAISE EXCEPTION 'El correo es obligatorio';
-    END IF;
-
-    IF p_correo !~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
-        RAISE EXCEPTION 'El formato del correo no es válido';
-    END IF;
-
-    RETURN TRUE;
-END;
-$$;
-
--- Validar teléfono de persona
-CREATE OR REPLACE FUNCTION fn_validar_telefono(
-    p_telefono VARCHAR
-)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_telefono IS NULL OR TRIM(p_telefono) = '' THEN
-        RETURN TRUE;
-    END IF;
-
-    IF p_telefono !~ '^3[0-9]{9}$' THEN
-        RAISE EXCEPTION 'El teléfono debe iniciar en 3 y tener 10 dígitos numéricos';
-    END IF;
-
-    RETURN TRUE;
-END;
-$$;
-
--- Validar stock
-CREATE OR REPLACE FUNCTION fn_validar_stock(
-    p_stock INT
-)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_stock IS NULL THEN
-        RAISE EXCEPTION 'El stock es obligatorio';
-    END IF;
-
-    -- Se permite stock = 0 para mostrar AGOTADO
-    IF p_stock < 0 THEN
-        RAISE EXCEPTION 'El stock no puede ser negativo';
-    END IF;
-
-    RETURN TRUE;
-END;
-$$;
-
 -- =========================================================
--- PROCEDIMIENTO: REGISTRAR INVENTARIO
--- Permite stock = 0 para mostrar AGOTADO
+-- SCRIPT 05 - TRIGGERS DE AUDITORÍA
+-- Proyecto: Tienda de ropa online
 -- =========================================================
 
-CREATE OR REPLACE PROCEDURE registrar_inventario(
-    p_pro_id INT,
-    p_stock INT,
-    p_tal_id INT,
-    p_col_id INT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
-        RAISE EXCEPTION 'No existe el producto indicado';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM tallas WHERE tal_id = p_tal_id) THEN
-        RAISE EXCEPTION 'No existe la talla indicada';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM colores WHERE col_id = p_col_id) THEN
-        RAISE EXCEPTION 'No existe el color indicado';
-    END IF;
-
-    PERFORM fn_validar_stock(p_stock);
-
-    IF EXISTS (
-        SELECT 1
-        FROM inventarios
-        WHERE pro_id = p_pro_id
-          AND tal_id = p_tal_id
-          AND col_id = p_col_id
-    ) THEN
-        UPDATE inventarios
-        SET stock = stock + p_stock
-        WHERE pro_id = p_pro_id
-          AND tal_id = p_tal_id
-          AND col_id = p_col_id;
-    ELSE
-        INSERT INTO inventarios(pro_id, stock, tal_id, col_id)
-        VALUES (p_pro_id, p_stock, p_tal_id, p_col_id);
-    END IF;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al registrar inventario: %', SQLERRM;
-END;
-$$;
 
 -- =========================================================
--- PROCEDIMIENTO: REALIZAR COMPRA
--- No permite comprar productos agotados
+-- AUDITORÍA PERSONAS
 -- =========================================================
 
-CREATE OR REPLACE PROCEDURE realizar_compra(
-    p_per_id INT,
-    p_inv_id INT,
-    p_cantidad INT,
-    p_met_id INT
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_ven_id INT;
-    v_stock INT;
-    v_precio NUMERIC(10,2);
-    v_total NUMERIC(10,2);
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM personas WHERE per_id = p_per_id) THEN
-        RAISE EXCEPTION 'No existe la persona indicada';
-    END IF;
+CREATE TABLE IF NOT EXISTS aud_personas (
+    aud_id SERIAL PRIMARY KEY,
+    per_id INT,
+    nombre VARCHAR(50),
+    telefono VARCHAR(20),
+    correo VARCHAR(50),
+    genero CHAR(1),
+    fecha_nacimiento DATE,
+    rol_id INT,
+    operacion CHAR(1),
+    fecha_cambio TIMESTAMP DEFAULT NOW(),
+    registrado_por VARCHAR(50)
+);
 
-    IF NOT EXISTS (SELECT 1 FROM metodos_pago WHERE met_id = p_met_id) THEN
-        RAISE EXCEPTION 'No existe el método de pago indicado';
-    END IF;
-
-    IF p_cantidad <= 0 THEN
-        RAISE EXCEPTION 'La cantidad debe ser mayor que cero';
-    END IF;
-
-    SELECT i.stock, p.precio
-    INTO v_stock, v_precio
-    FROM inventarios i
-    INNER JOIN productos p ON p.pro_id = i.pro_id
-    WHERE i.inv_id = p_inv_id;
-
-    IF v_stock IS NULL THEN
-        RAISE EXCEPTION 'No existe el inventario indicado';
-    END IF;
-
-    IF v_stock = 0 THEN
-        RAISE EXCEPTION 'Producto agotado. No se permite realizar compra';
-    END IF;
-
-    IF v_stock < p_cantidad THEN
-        RAISE EXCEPTION 'Stock insuficiente';
-    END IF;
-
-    v_total := p_cantidad * v_precio;
-
-    INSERT INTO ventas(per_id, fecha)
-    VALUES (p_per_id, CURRENT_DATE)
-    RETURNING ven_id INTO v_ven_id;
-
-    INSERT INTO detalle_ventas(ven_id, inv_id, cantidad, precio_unitario)
-    VALUES (v_ven_id, p_inv_id, p_cantidad, v_precio);
-
-    UPDATE inventarios
-    SET stock = stock - p_cantidad
-    WHERE inv_id = p_inv_id;
-
-    INSERT INTO pagos(ven_id, met_id, monto, fecha)
-    VALUES (v_ven_id, p_met_id, v_total, CURRENT_DATE);
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al realizar compra: %', SQLERRM;
-END;
-$$;
-
-
-
--- Estado del producto para el catálogo
-CREATE OR REPLACE FUNCTION fn_estado_producto(
-    p_stock INT
-)
-RETURNS VARCHAR
+CREATE OR REPLACE FUNCTION f_aud_personas()
+RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF p_stock = 0 THEN
-        RETURN 'AGOTADO';
-    ELSE
-        RETURN 'DISPONIBLE';
+    INSERT INTO aud_personas (
+        per_id,
+        nombre,
+        telefono,
+        correo,
+        genero,
+        fecha_nacimiento,
+        rol_id,
+        operacion,
+        fecha_cambio,
+        registrado_por
+    )
+    VALUES (
+        COALESCE(NEW.per_id, OLD.per_id),
+        COALESCE(NEW.nombre, OLD.nombre),
+        COALESCE(NEW.telefono, OLD.telefono),
+        COALESCE(NEW.correo, OLD.correo),
+        COALESCE(NEW.genero, OLD.genero),
+        COALESCE(NEW.fecha_nacimiento, OLD.fecha_nacimiento),
+        COALESCE(NEW.rol_id, OLD.rol_id),
+        SUBSTRING(TG_OP, 1, 1),
+        NOW(),
+        CURRENT_USER
+    );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
     END IF;
+
+    RETURN NEW;
 END;
 $$;
 
-CREATE OR REPLACE VIEW vw_catalogo_productos AS
-SELECT
-    p.pro_id,
-    p.nombre AS producto,
-    p.precio,
-    c.nombre AS categoria,
-    e.nombre AS estilo,
-    i.inv_id,
-    t.nombre AS talla,
-    co.nombre AS color,
-    i.stock,
-    fn_estado_producto(i.stock) AS estado_producto,
-    CASE
-        WHEN i.stock = 0 THEN FALSE
-        ELSE TRUE
-    END AS permite_interaccion
-FROM productos p
-INNER JOIN categorias c ON c.cat_id = p.cat_id
-INNER JOIN estilos e ON e.est_id = p.est_id
-INNER JOIN inventarios i ON i.pro_id = p.pro_id
-INNER JOIN tallas t ON t.tal_id = i.tal_id
-INNER JOIN colores co ON co.col_id = i.col_id;
+DROP TRIGGER IF EXISTS tr_aud_personas ON personas;
+
+CREATE TRIGGER tr_aud_personas
+AFTER INSERT OR UPDATE OR DELETE ON personas
+FOR EACH ROW
+EXECUTE FUNCTION f_aud_personas();
+
+
+-- =========================================================
+-- AUDITORÍA PRODUCTOS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS aud_productos (
+    aud_id SERIAL PRIMARY KEY,
+    pro_id INT,
+    nombre VARCHAR(100),
+    precio NUMERIC(10,2),
+    activo BOOLEAN,
+    cat_id INT,
+    est_id INT,
+    operacion CHAR(1),
+    fecha_cambio TIMESTAMP DEFAULT NOW(),
+    registrado_por VARCHAR(50)
+);
+
+CREATE OR REPLACE FUNCTION f_aud_productos()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO aud_productos (
+        pro_id,
+        nombre,
+        precio,
+        activo,
+        cat_id,
+        est_id,
+        operacion,
+        fecha_cambio,
+        registrado_por
+    )
+    VALUES (
+        COALESCE(NEW.pro_id, OLD.pro_id),
+        COALESCE(NEW.nombre, OLD.nombre),
+        COALESCE(NEW.precio, OLD.precio),
+        COALESCE(NEW.activo, OLD.activo),
+        COALESCE(NEW.cat_id, OLD.cat_id),
+        COALESCE(NEW.est_id, OLD.est_id),
+        SUBSTRING(TG_OP, 1, 1),
+        NOW(),
+        CURRENT_USER
+    );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_aud_productos ON productos;
+
+CREATE TRIGGER tr_aud_productos
+AFTER INSERT OR UPDATE OR DELETE ON productos
+FOR EACH ROW
+EXECUTE FUNCTION f_aud_productos();
+
+
+-- =========================================================
+-- AUDITORÍA INVENTARIOS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS aud_inventarios (
+    aud_id SERIAL PRIMARY KEY,
+    inv_id INT,
+    pro_id INT,
+    stock INT,
+    tal_id INT,
+    col_id INT,
+    operacion CHAR(1),
+    fecha_cambio TIMESTAMP DEFAULT NOW(),
+    registrado_por VARCHAR(50)
+);
+
+CREATE OR REPLACE FUNCTION f_aud_inventarios()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO aud_inventarios (
+        inv_id,
+        pro_id,
+        stock,
+        tal_id,
+        col_id,
+        operacion,
+        fecha_cambio,
+        registrado_por
+    )
+    VALUES (
+        COALESCE(NEW.inv_id, OLD.inv_id),
+        COALESCE(NEW.pro_id, OLD.pro_id),
+        COALESCE(NEW.stock, OLD.stock),
+        COALESCE(NEW.tal_id, OLD.tal_id),
+        COALESCE(NEW.col_id, OLD.col_id),
+        SUBSTRING(TG_OP, 1, 1),
+        NOW(),
+        CURRENT_USER
+    );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_aud_inventarios ON inventarios;
+
+CREATE TRIGGER tr_aud_inventarios
+AFTER INSERT OR UPDATE OR DELETE ON inventarios
+FOR EACH ROW
+EXECUTE FUNCTION f_aud_inventarios();
+
+
+-- =========================================================
+-- AUDITORÍA VENTAS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS aud_ventas (
+    aud_id SERIAL PRIMARY KEY,
+    ven_id INT,
+    per_id INT,
+    fecha DATE,
+    operacion CHAR(1),
+    fecha_cambio TIMESTAMP DEFAULT NOW(),
+    registrado_por VARCHAR(50)
+);
+
+CREATE OR REPLACE FUNCTION f_aud_ventas()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO aud_ventas (
+        ven_id,
+        per_id,
+        fecha,
+        operacion,
+        fecha_cambio,
+        registrado_por
+    )
+    VALUES (
+        COALESCE(NEW.ven_id, OLD.ven_id),
+        COALESCE(NEW.per_id, OLD.per_id),
+        COALESCE(NEW.fecha, OLD.fecha),
+        SUBSTRING(TG_OP, 1, 1),
+        NOW(),
+        CURRENT_USER
+    );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_aud_ventas ON ventas;
+
+CREATE TRIGGER tr_aud_ventas
+AFTER INSERT OR UPDATE OR DELETE ON ventas
+FOR EACH ROW
+EXECUTE FUNCTION f_aud_ventas();
+
+
+-- =========================================================
+-- AUDITORÍA PAGOS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS aud_pagos (
+    aud_id SERIAL PRIMARY KEY,
+    pag_id INT,
+    ven_id INT,
+    met_id INT,
+    monto NUMERIC(10,2),
+    fecha DATE,
+    operacion CHAR(1),
+    fecha_cambio TIMESTAMP DEFAULT NOW(),
+    registrado_por VARCHAR(50)
+);
+
+CREATE OR REPLACE FUNCTION f_aud_pagos()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO aud_pagos (
+        pag_id,
+        ven_id,
+        met_id,
+        monto,
+        fecha,
+        operacion,
+        fecha_cambio,
+        registrado_por
+    )
+    VALUES (
+        COALESCE(NEW.pag_id, OLD.pag_id),
+        COALESCE(NEW.ven_id, OLD.ven_id),
+        COALESCE(NEW.met_id, OLD.met_id),
+        COALESCE(NEW.monto, OLD.monto),
+        COALESCE(NEW.fecha, OLD.fecha),
+        SUBSTRING(TG_OP, 1, 1),
+        NOW(),
+        CURRENT_USER
+    );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_aud_pagos ON pagos;
+
+CREATE TRIGGER tr_aud_pagos
+AFTER INSERT OR UPDATE OR DELETE ON pagos
+FOR EACH ROW
+EXECUTE FUNCTION f_aud_pagos();

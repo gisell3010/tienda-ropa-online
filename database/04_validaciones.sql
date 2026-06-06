@@ -1,5 +1,13 @@
---VALIDACIONES BASICAS--
--- Validar correo de persona
+-- =========================================================
+-- SCRIPT 04 - VALIDACIONES Y PROCEDIMIENTOS
+-- Proyecto: Tienda de ropa online
+-- =========================================================
+
+
+-- =========================================================
+-- FUNCIÓN: VALIDAR CORREO
+-- =========================================================
+
 CREATE OR REPLACE FUNCTION fn_validar_correo(
     p_correo VARCHAR
 )
@@ -19,7 +27,11 @@ BEGIN
 END;
 $$;
 
--- Validar teléfono de persona
+
+-- =========================================================
+-- FUNCIÓN: VALIDAR TELÉFONO
+-- =========================================================
+
 CREATE OR REPLACE FUNCTION fn_validar_telefono(
     p_telefono VARCHAR
 )
@@ -39,7 +51,11 @@ BEGIN
 END;
 $$;
 
--- Validar stock
+
+-- =========================================================
+-- FUNCIÓN: VALIDAR STOCK
+-- =========================================================
+
 CREATE OR REPLACE FUNCTION fn_validar_stock(
     p_stock INT
 )
@@ -51,7 +67,6 @@ BEGIN
         RAISE EXCEPTION 'El stock es obligatorio';
     END IF;
 
-    -- Se permite stock = 0 para mostrar AGOTADO
     IF p_stock < 0 THEN
         RAISE EXCEPTION 'El stock no puede ser negativo';
     END IF;
@@ -60,9 +75,29 @@ BEGIN
 END;
 $$;
 
+
+-- =========================================================
+-- FUNCIÓN: ESTADO DEL PRODUCTO
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION fn_estado_producto(
+    p_stock INT
+)
+RETURNS VARCHAR
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_stock IS NULL OR p_stock = 0 THEN
+        RETURN 'AGOTADO';
+    ELSE
+        RETURN 'DISPONIBLE';
+    END IF;
+END;
+$$;
+
+
 -- =========================================================
 -- PROCEDIMIENTO: REGISTRAR INVENTARIO
--- Permite stock = 0 para mostrar AGOTADO
 -- =========================================================
 
 CREATE OR REPLACE PROCEDURE registrar_inventario(
@@ -74,6 +109,18 @@ CREATE OR REPLACE PROCEDURE registrar_inventario(
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF p_pro_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el producto';
+    END IF;
+
+    IF p_tal_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la talla';
+    END IF;
+
+    IF p_col_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el color';
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
         RAISE EXCEPTION 'No existe el producto indicado';
     END IF;
@@ -88,22 +135,21 @@ BEGIN
 
     PERFORM fn_validar_stock(p_stock);
 
-    IF EXISTS (
-        SELECT 1
-        FROM inventarios
-        WHERE pro_id = p_pro_id
-          AND tal_id = p_tal_id
-          AND col_id = p_col_id
-    ) THEN
-        UPDATE inventarios
-        SET stock = stock + p_stock
-        WHERE pro_id = p_pro_id
-          AND tal_id = p_tal_id
-          AND col_id = p_col_id;
-    ELSE
-        INSERT INTO inventarios(pro_id, stock, tal_id, col_id)
-        VALUES (p_pro_id, p_stock, p_tal_id, p_col_id);
-    END IF;
+    INSERT INTO inventarios (
+        pro_id,
+        stock,
+        tal_id,
+        col_id
+    )
+    VALUES (
+        p_pro_id,
+        p_stock,
+        p_tal_id,
+        p_col_id
+    )
+    ON CONFLICT (pro_id, tal_id, col_id)
+    DO UPDATE SET
+        stock = EXCLUDED.stock;
 
 EXCEPTION
     WHEN OTHERS THEN
@@ -111,9 +157,43 @@ EXCEPTION
 END;
 $$;
 
+
+-- =========================================================
+-- PROCEDIMIENTO: AUMENTAR STOCK
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE aumentar_stock(
+    p_inv_id INT,
+    p_cantidad INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_inv_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el inventario';
+    END IF;
+
+    IF p_cantidad IS NULL OR p_cantidad <= 0 THEN
+        RAISE EXCEPTION 'La cantidad a aumentar debe ser mayor que cero';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM inventarios WHERE inv_id = p_inv_id) THEN
+        RAISE EXCEPTION 'No existe el inventario indicado';
+    END IF;
+
+    UPDATE inventarios
+    SET stock = stock + p_cantidad
+    WHERE inv_id = p_inv_id;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error al aumentar stock: %', SQLERRM;
+END;
+$$;
+
+
 -- =========================================================
 -- PROCEDIMIENTO: REALIZAR COMPRA
--- No permite comprar productos agotados
 -- =========================================================
 
 CREATE OR REPLACE PROCEDURE realizar_compra(
@@ -130,26 +210,46 @@ DECLARE
     v_precio NUMERIC(10,2);
     v_total NUMERIC(10,2);
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM personas WHERE per_id = p_per_id) THEN
-        RAISE EXCEPTION 'No existe la persona indicada';
+    IF p_per_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la persona';
+    END IF;
+
+    IF p_inv_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el inventario';
+    END IF;
+
+    IF p_met_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el método de pago';
+    END IF;
+
+    IF p_cantidad IS NULL OR p_cantidad <= 0 THEN
+        RAISE EXCEPTION 'La cantidad debe ser mayor que cero';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM personas p
+        INNER JOIN roles r ON r.rol_id = p.rol_id
+        WHERE p.per_id = p_per_id
+          AND r.nombre = 'CLIENTE'
+    ) THEN
+        RAISE EXCEPTION 'Solo una persona con rol CLIENTE puede realizar compras';
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM metodos_pago WHERE met_id = p_met_id) THEN
         RAISE EXCEPTION 'No existe el método de pago indicado';
     END IF;
 
-    IF p_cantidad <= 0 THEN
-        RAISE EXCEPTION 'La cantidad debe ser mayor que cero';
-    END IF;
-
     SELECT i.stock, p.precio
     INTO v_stock, v_precio
     FROM inventarios i
     INNER JOIN productos p ON p.pro_id = i.pro_id
-    WHERE i.inv_id = p_inv_id;
+    WHERE i.inv_id = p_inv_id
+      AND p.activo = TRUE
+    FOR UPDATE OF i;
 
     IF v_stock IS NULL THEN
-        RAISE EXCEPTION 'No existe el inventario indicado';
+        RAISE EXCEPTION 'No existe el inventario indicado o el producto está inactivo';
     END IF;
 
     IF v_stock = 0 THEN
@@ -162,8 +262,8 @@ BEGIN
 
     v_total := p_cantidad * v_precio;
 
-    INSERT INTO ventas(per_id, fecha)
-    VALUES (p_per_id, CURRENT_DATE)
+    INSERT INTO ventas(per_id)
+    VALUES (p_per_id)
     RETURNING ven_id INTO v_ven_id;
 
     INSERT INTO detalle_ventas(ven_id, inv_id, cantidad, precio_unitario)
@@ -173,52 +273,11 @@ BEGIN
     SET stock = stock - p_cantidad
     WHERE inv_id = p_inv_id;
 
-    INSERT INTO pagos(ven_id, met_id, monto, fecha)
-    VALUES (v_ven_id, p_met_id, v_total, CURRENT_DATE);
+    INSERT INTO pagos(ven_id, met_id, monto)
+    VALUES (v_ven_id, p_met_id, v_total);
 
 EXCEPTION
     WHEN OTHERS THEN
         RAISE EXCEPTION 'Error al realizar compra: %', SQLERRM;
 END;
 $$;
-
-
-
--- Estado del producto para el catálogo
-CREATE OR REPLACE FUNCTION fn_estado_producto(
-    p_stock INT
-)
-RETURNS VARCHAR
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_stock = 0 THEN
-        RETURN 'AGOTADO';
-    ELSE
-        RETURN 'DISPONIBLE';
-    END IF;
-END;
-$$;
-
-CREATE OR REPLACE VIEW vw_catalogo_productos AS
-SELECT
-    p.pro_id,
-    p.nombre AS producto,
-    p.precio,
-    c.nombre AS categoria,
-    e.nombre AS estilo,
-    i.inv_id,
-    t.nombre AS talla,
-    co.nombre AS color,
-    i.stock,
-    fn_estado_producto(i.stock) AS estado_producto,
-    CASE
-        WHEN i.stock = 0 THEN FALSE
-        ELSE TRUE
-    END AS permite_interaccion
-FROM productos p
-INNER JOIN categorias c ON c.cat_id = p.cat_id
-INNER JOIN estilos e ON e.est_id = p.est_id
-INNER JOIN inventarios i ON i.pro_id = p.pro_id
-INNER JOIN tallas t ON t.tal_id = i.tal_id
-INNER JOIN colores co ON co.col_id = i.col_id;

@@ -533,4 +533,55 @@
   .stock-card {
     justify-content: flex-start;
   }
+<<<<<<< HEAD
 }
+=======
+}
+
+/* MENSAJES DEL CATÁLOGO */
+
+.catalog-message {
+  width: min(900px, 92%);
+  margin: 50px auto 0;
+  padding: 22px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #eadfce;
+  border-radius: 18px;
+  color: #374151;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
+}
+
+.catalog-error {
+  width: min(900px, 92%);
+  margin: 50px auto 0;
+  padding: 24px;
+  background: #fff1f2;
+  color: #991b1b;
+  border: 1px solid #fecdd3;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(153, 27, 27, 0.08);
+}
+
+.catalog-error strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.catalog-error p {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.catalog-error small {
+  color: #7f1d1d;
+}
+
+.details-empty {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+>>>>>>> fdb5093 (fix: corregir errores del catálogo frontend)

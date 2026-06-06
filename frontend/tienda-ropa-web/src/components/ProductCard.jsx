@@ -7,7 +7,12 @@ function ProductCard({ product }) {
     }
 
     if (typeof valor === "object") {
-      return valor.nombre || valor.name || "";
+      return (
+        valor.nombre ||
+        valor.name ||
+        valor.descripcion ||
+        ""
+      );
     }
 
     return "";
@@ -27,6 +32,7 @@ function ProductCard({ product }) {
 
   const tallas = obtenerListaTexto(product.tallas);
   const colores = obtenerListaTexto(product.colores);
+
   const stock = Number(product.stock) || 0;
   const agotado = stock === 0;
 
@@ -48,7 +54,16 @@ function ProductCard({ product }) {
       Beige: "#d6b98c",
       Amarillo: "#facc15",
       Morado: "#7c3aed",
-      Rosado: "#f9a8d4"
+      Rosado: "#f9a8d4",
+      Café: "#8b5e34",
+      Cafe: "#8b5e34",
+      Naranja: "#f97316",
+      Vinotinto: "#7f1d1d",
+      Fucsia: "#d946ef",
+      Lila: "#c084fc",
+      Crema: "#f5e6c8",
+      Mostaza: "#ca8a04",
+      Coral: "#fb7185"
     };
 
     return coloresHex[color] || "#d1d5db";
@@ -69,15 +84,21 @@ function ProductCard({ product }) {
           className="product-card__image product-card__image--hover"
         />
 
-        <span className="product-card__style">{product.estilo}</span>
+        <span className="product-card__style">
+          {product.estilo || "Sin estilo"}
+        </span>
 
         {agotado && <span className="product-card__badge">AGOTADO</span>}
       </div>
 
       <div className="product-card__content">
-        <p className="product-card__category">{product.categoria}</p>
+        <p className="product-card__category">
+          {product.categoria || "Sin categoría"}
+        </p>
 
-        <h3 className="product-card__title">{product.nombre}</h3>
+        <h3 className="product-card__title">
+          {product.nombre || "Producto sin nombre"}
+        </h3>
 
         <p className="product-card__price">{precioCOP}</p>
 

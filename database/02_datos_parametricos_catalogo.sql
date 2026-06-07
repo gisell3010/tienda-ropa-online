@@ -1,5 +1,5 @@
 -- =========================================================
--- SCRIPT 02 - CATÁLOGO BASE
+-- SCRIPT 02 - DATOS PARAMÉTRICOS DEL CATÁLOGO
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 

@@ -281,3 +281,66 @@ EXCEPTION
         RAISE EXCEPTION 'Error al realizar compra: %', SQLERRM;
 END;
 $$;
+
+-- =========================================================
+-- PROCEDIMIENTO: REGISTRAR PERSONA
+-- Usa validaciones de correo y teléfono
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_persona(
+    p_nombre VARCHAR,
+    p_telefono VARCHAR,
+    p_correo VARCHAR,
+    p_contrasena_hash VARCHAR,
+    p_genero CHAR,
+    p_fecha_nacimiento DATE,
+    p_rol_id INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre es obligatorio';
+    END IF;
+
+    IF p_contrasena_hash IS NULL OR TRIM(p_contrasena_hash) = '' THEN
+        RAISE EXCEPTION 'La contraseña cifrada es obligatoria';
+    END IF;
+
+    PERFORM fn_validar_correo(p_correo);
+    PERFORM fn_validar_telefono(p_telefono);
+
+    IF p_genero IS NULL OR p_genero NOT IN ('M', 'F', 'O') THEN
+        RAISE EXCEPTION 'El género debe ser M, F u O';
+    END IF;
+
+    IF p_fecha_nacimiento IS NULL OR p_fecha_nacimiento >= CURRENT_DATE THEN
+        RAISE EXCEPTION 'La fecha de nacimiento no es válida';
+    END IF;
+
+    IF p_rol_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM roles WHERE rol_id = p_rol_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el rol indicado';
+    END IF;
+
+    INSERT INTO personas (
+        nombre,
+        telefono,
+        correo,
+        contrasena_hash,
+        genero,
+        fecha_nacimiento,
+        rol_id
+    )
+    VALUES (
+        TRIM(p_nombre),
+        p_telefono,
+        LOWER(TRIM(p_correo)),
+        p_contrasena_hash,
+        p_genero,
+        p_fecha_nacimiento,
+        p_rol_id
+    );
+END;
+$$;

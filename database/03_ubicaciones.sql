@@ -1,5 +1,5 @@
 -- =========================================================
--- SCRIPT 03 - DATOS INICIALES
+-- SCRIPT 03 - UBICACIONES
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 

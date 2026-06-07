@@ -1,5 +1,5 @@
 -- =========================================================
--- SCRIPT 06 - VISTAS
+-- SCRIPT 07 - VISTAS
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 
@@ -61,6 +61,8 @@ SELECT
     c.nombre AS categoria,
     e.nombre AS estilo,
     COALESCE(SUM(i.stock), 0) AS stock_total,
+    STRING_AGG(DISTINCT t.nombre, ', ') AS tallas_disponibles,
+    STRING_AGG(DISTINCT co.nombre, ', ') AS colores_disponibles,
     fn_estado_producto(COALESCE(SUM(i.stock), 0)::INT) AS estado_producto,
     CASE
         WHEN COALESCE(SUM(i.stock), 0) = 0 THEN FALSE
@@ -70,6 +72,8 @@ FROM productos p
 INNER JOIN categorias c ON c.cat_id = p.cat_id
 INNER JOIN estilos e ON e.est_id = p.est_id
 LEFT JOIN inventarios i ON i.pro_id = p.pro_id
+LEFT JOIN tallas t ON t.tal_id = i.tal_id
+LEFT JOIN colores co ON co.col_id = i.col_id
 WHERE p.activo = TRUE
 GROUP BY
     p.pro_id,
@@ -78,6 +82,22 @@ GROUP BY
     p.activo,
     c.nombre,
     e.nombre;
+
+-- =========================================================
+-- VISTA: ADMINISTRATIVA
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_admin_productos AS
+SELECT
+    p.pro_id,
+    p.nombre AS producto,
+    p.precio,
+    p.activo,
+    c.nombre AS categoria,
+    e.nombre AS estilo
+FROM productos p
+INNER JOIN categorias c ON c.cat_id = p.cat_id
+INNER JOIN estilos e ON e.est_id = p.est_id;
 
 
 -- =========================================================

@@ -6,7 +6,7 @@
 CREATE DATABASE tienda_ropa_online;
 
 -- Conectarse a la base
-\c tienda
+\c tienda_ropa_online
 
 -- =========================================
 -- TABLA ROLES
@@ -92,6 +92,7 @@ CREATE TABLE personas (
     nombre VARCHAR(50) NOT NULL,
     telefono VARCHAR(20),
     correo VARCHAR(50) NOT NULL UNIQUE,
+    contrasena_hash VARCHAR(255) NOT NULL,
     genero CHAR(1) NOT NULL CHECK (genero IN ('M', 'F', 'O')),
     fecha_nacimiento DATE NOT NULL,
     rol_id INT NOT NULL,

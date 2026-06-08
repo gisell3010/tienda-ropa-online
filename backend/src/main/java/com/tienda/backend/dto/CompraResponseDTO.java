@@ -3,12 +3,12 @@ package com.tienda.backend.dto;
 public class CompraResponseDTO {
     private boolean exito;
     private String mensaje;
-    private Long ventaId; // Nulo si la compra falla
+    private Integer ventaId; // Nulo si la compra falla
 
     // Constructores
     public CompraResponseDTO() {}
 
-    public CompraResponseDTO(boolean exito, String mensaje, Long ventaId) {
+    public CompraResponseDTO(boolean exito, String mensaje, Integer ventaId) {
         this.exito = exito;
         this.mensaje = mensaje;
         this.ventaId = ventaId;
@@ -31,11 +31,11 @@ public class CompraResponseDTO {
         this.mensaje = mensaje;
     }
 
-    public Long getVentaId() {
+    public Integer getVentaId() {
         return ventaId;
     }
 
-    public void setVentaId(Long ventaId) {
+    public void setVentaId(Integer ventaId) {
         this.ventaId = ventaId;
     }
 }

@@ -11,6 +11,11 @@ SELECT fn_estado_producto(10);
 CALL registrar_inventario(1, 10, 1, 1);
 CALL aumentar_stock(1, 5);
 CALL realizar_compra(1, 1, 1, 1);
+CALL realizar_compra_carrito(
+    1,
+    1,
+    '[{"inv_id": 1, "cantidad": 2}]'::jsonb
+);
 
 UPDATE productos
 SET precio = precio + 1000

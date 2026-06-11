@@ -503,3 +503,221 @@ EXCEPTION
         RAISE EXCEPTION 'Error al realizar compra del carrito: %', SQLERRM;
 END;
 $$;
+
+-- Registro público: siempre crea CLIENTE
+CREATE OR REPLACE PROCEDURE registrar_cliente(
+    p_nombre VARCHAR,
+    p_telefono VARCHAR,
+    p_correo VARCHAR,
+    p_contrasena_hash VARCHAR,
+    p_genero CHAR,
+    p_fecha_nacimiento DATE
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_rol_cliente INT;
+BEGIN
+    SELECT rol_id
+    INTO v_rol_cliente
+    FROM roles
+    WHERE nombre = 'CLIENTE';
+
+    IF v_rol_cliente IS NULL THEN
+        RAISE EXCEPTION 'No existe el rol CLIENTE';
+    END IF;
+
+    CALL registrar_persona(
+        p_nombre,
+        p_telefono,
+        p_correo,
+        p_contrasena_hash,
+        p_genero,
+        p_fecha_nacimiento,
+        v_rol_cliente
+    );
+END;
+$$;
+
+-- Solo para uso administrativo
+CREATE OR REPLACE PROCEDURE registrar_usuario_admin(
+    p_nombre VARCHAR,
+    p_telefono VARCHAR,
+    p_correo VARCHAR,
+    p_contrasena_hash VARCHAR,
+    p_genero CHAR,
+    p_fecha_nacimiento DATE,
+    p_rol_id INT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_nombre_rol VARCHAR;
+BEGIN
+    SELECT nombre
+    INTO v_nombre_rol
+    FROM roles
+    WHERE rol_id = p_rol_id;
+
+    IF v_nombre_rol IS NULL THEN
+        RAISE EXCEPTION 'No existe el rol indicado';
+    END IF;
+
+    IF v_nombre_rol NOT IN ('ADMIN', 'SUPERADMIN') THEN
+        RAISE EXCEPTION 'Este procedimiento solo permite registrar ADMIN o SUPERADMIN';
+    END IF;
+
+    CALL registrar_persona(
+        p_nombre,
+        p_telefono,
+        p_correo,
+        p_contrasena_hash,
+        p_genero,
+        p_fecha_nacimiento,
+        p_rol_id
+    );
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTO: REALIZAR COMPRA CON CARRITO
+-- Registra una venta con varios productos.
+-- El cliente selecciona productos en el frontend,
+-- el backend envía el carrito y la base de datos valida stock.
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE realizar_compra_carrito(
+    p_per_id INT,
+    p_met_id INT,
+    p_items JSONB
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_ven_id INT;
+    v_item JSONB;
+    v_inv_id INT;
+    v_cantidad INT;
+    v_stock INT;
+    v_precio NUMERIC(10,2);
+    v_total NUMERIC(10,2) := 0;
+BEGIN
+    IF p_per_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la persona';
+    END IF;
+
+    IF p_met_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el método de pago';
+    END IF;
+
+    IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
+        RAISE EXCEPTION 'El carrito no puede estar vacío';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM personas p
+        INNER JOIN roles r ON r.rol_id = p.rol_id
+        WHERE p.per_id = p_per_id
+          AND r.nombre = 'CLIENTE'
+    ) THEN
+        RAISE EXCEPTION 'Solo una persona con rol CLIENTE puede realizar compras';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM metodos_pago
+        WHERE met_id = p_met_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el método de pago indicado';
+    END IF;
+
+    -- Primero valida todo el carrito antes de crear la venta
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_inv_id := (v_item ->> 'inv_id')::INT;
+        v_cantidad := (v_item ->> 'cantidad')::INT;
+
+        IF v_inv_id IS NULL THEN
+            RAISE EXCEPTION 'Uno de los productos no tiene inventario indicado';
+        END IF;
+
+        IF v_cantidad IS NULL OR v_cantidad <= 0 THEN
+            RAISE EXCEPTION 'La cantidad de cada producto debe ser mayor que cero';
+        END IF;
+
+        SELECT i.stock, p.precio
+        INTO v_stock, v_precio
+        FROM inventarios i
+        INNER JOIN productos p ON p.pro_id = i.pro_id
+        WHERE i.inv_id = v_inv_id
+          AND p.activo = TRUE
+        FOR UPDATE OF i;
+
+        IF v_stock IS NULL THEN
+            RAISE EXCEPTION 'No existe el inventario % o el producto está inactivo', v_inv_id;
+        END IF;
+
+        IF v_stock <= 0 THEN
+            RAISE EXCEPTION 'El producto con inventario % está agotado', v_inv_id;
+        END IF;
+
+        IF v_stock < v_cantidad THEN
+            RAISE EXCEPTION 'Stock insuficiente para el inventario %', v_inv_id;
+        END IF;
+
+        v_total := v_total + (v_cantidad * v_precio);
+    END LOOP;
+
+    -- Crea una sola venta
+    INSERT INTO ventas(per_id)
+    VALUES (p_per_id)
+    RETURNING ven_id INTO v_ven_id;
+
+    -- Inserta cada detalle y descuenta stock
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_inv_id := (v_item ->> 'inv_id')::INT;
+        v_cantidad := (v_item ->> 'cantidad')::INT;
+
+        SELECT p.precio
+        INTO v_precio
+        FROM inventarios i
+        INNER JOIN productos p ON p.pro_id = i.pro_id
+        WHERE i.inv_id = v_inv_id;
+
+        INSERT INTO detalle_ventas(
+            ven_id,
+            inv_id,
+            cantidad,
+            precio_unitario
+        )
+        VALUES (
+            v_ven_id,
+            v_inv_id,
+            v_cantidad,
+            v_precio
+        );
+
+        UPDATE inventarios
+        SET stock = stock - v_cantidad
+        WHERE inv_id = v_inv_id;
+    END LOOP;
+
+    -- Registra un solo pago por la venta completa
+    INSERT INTO pagos(
+        ven_id,
+        met_id,
+        monto
+    )
+    VALUES (
+        v_ven_id,
+        p_met_id,
+        v_total
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error al realizar compra del carrito: %', SQLERRM;
+END;
+$$;

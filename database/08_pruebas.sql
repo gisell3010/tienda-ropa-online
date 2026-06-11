@@ -16,6 +16,14 @@ CALL realizar_compra_carrito(
     1,
     '[{"inv_id": 1, "cantidad": 2}]'::jsonb
 );
+CALL realizar_compra_carrito(
+    1,
+    1,
+    '[
+        {"inv_id": 1, "cantidad": 2},
+        {"inv_id": 3, "cantidad": 1}
+    ]'::jsonb
+);
 
 UPDATE productos
 SET precio = precio + 1000

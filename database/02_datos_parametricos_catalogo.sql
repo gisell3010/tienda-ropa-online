@@ -93,3 +93,14 @@ INSERT INTO colores (nombre) VALUES
 ('Terracota'),
 ('Crema')
 ON CONFLICT (nombre) DO NOTHING;
+
+-- =========================================================
+-- INSERT ROLES
+-- =========================================================
+
+INSERT INTO roles (nombre) VALUES
+('CLIENTE'),
+('ADMIN'),
+('SUPERADMIN')
+ON CONFLICT (nombre) DO NOTHING;
+

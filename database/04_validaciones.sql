@@ -75,8 +75,8 @@ BEGIN
         RAISE EXCEPTION 'El stock es obligatorio';
     END IF;
 
-    IF p_stock <= 0 THEN
-        RAISE EXCEPTION 'El stock ingresado debe ser mayor que cero';
+    IF p_stock < 0 THEN
+        RAISE EXCEPTION 'El stock no puede ser negativo';
     END IF;
 
     RETURN TRUE;
@@ -369,11 +369,12 @@ $$;
 -- el backend envía el carrito y la base de datos valida stock.
 -- =========================================================
 
-CREATE OR REPLACE PROCEDURE realizar_compra_carrito(
+CREATE OR REPLACE FUNCTION realizar_compra_carrito(
     p_per_id INT,
     p_met_id INT,
     p_items JSONB
 )
+RETURNS INT
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -415,7 +416,7 @@ BEGIN
         RAISE EXCEPTION 'No existe el método de pago indicado';
     END IF;
 
-    -- Primero valida todo el carrito antes de crear la venta
+    -- Validación centralizada de inventario, cantidad y stock.
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
         v_inv_id := (v_item ->> 'inv_id')::INT;
@@ -452,12 +453,12 @@ BEGIN
         v_total := v_total + (v_cantidad * v_precio);
     END LOOP;
 
-    -- Crea una sola venta
+    -- La base crea la venta.
     INSERT INTO ventas(per_id)
     VALUES (p_per_id)
     RETURNING ven_id INTO v_ven_id;
 
-    -- Inserta cada detalle y descuenta stock
+    -- La base crea detalles y descuenta stock.
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
         v_inv_id := (v_item ->> 'inv_id')::INT;
@@ -487,7 +488,7 @@ BEGIN
         WHERE inv_id = v_inv_id;
     END LOOP;
 
-    -- Registra un solo pago por la venta completa
+    -- La base crea el pago.
     INSERT INTO pagos(
         ven_id,
         met_id,
@@ -498,6 +499,8 @@ BEGIN
         p_met_id,
         v_total
     );
+
+    RETURN v_ven_id;
 
 EXCEPTION
     WHEN OTHERS THEN

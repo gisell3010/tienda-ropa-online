@@ -1,10 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const CartContext = createContext();
 
 const CART_STORAGE_KEY = "tienda_carrito";
 
 export function CartProvider({ children }) {
+  const timeoutRef = useRef(null);
+
   const [carrito, setCarrito] = useState(() => {
     const carritoGuardado = localStorage.getItem(CART_STORAGE_KEY);
 
@@ -15,9 +17,32 @@ export function CartProvider({ children }) {
     return [];
   });
 
+  const [notificacion, setNotificacion] = useState({
+    mensaje: "",
+    tipo: ""
+  });
+
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(carrito));
   }, [carrito]);
+
+  const mostrarNotificacion = (mensaje, tipo = "success") => {
+    setNotificacion({
+      mensaje,
+      tipo
+    });
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      setNotificacion({
+        mensaje: "",
+        tipo: ""
+      });
+    }, 3000);
+  };
 
   const agregarProducto = (producto, talla, color, cantidad = 1) => {
     const cantidadNumerica = Number(cantidad);
@@ -65,7 +90,7 @@ export function CartProvider({ children }) {
 
     return {
       ok: true,
-      mensaje: "Producto agregado al carrito."
+      mensaje: "Producto agregado al carrito correctamente."
     };
   };
 
@@ -103,6 +128,8 @@ export function CartProvider({ children }) {
     setCarrito((carritoActual) =>
       carritoActual.filter((item) => item.itemId !== itemId)
     );
+
+    mostrarNotificacion("Producto eliminado del carrito.", "error");
   };
 
   const vaciarCarrito = () => {
@@ -131,7 +158,9 @@ export function CartProvider({ children }) {
     subtotalGeneral,
     costoEnvio,
     totalCompra,
-    cantidadTotalProductos
+    cantidadTotalProductos,
+    notificacion,
+    mostrarNotificacion
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

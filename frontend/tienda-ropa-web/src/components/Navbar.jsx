@@ -1,15 +1,26 @@
-function Navbar() {
+import { useCart } from "../context/CartContext";
+
+function Navbar({ irACatalogo, irACarrito }) {
+  const { cantidadTotalProductos } = useCart();
+
   return (
     <header className="navbar">
-      <div className="navbar__brand">
-        <h2>Tienda de ropa online</h2>
-        <p>Moda urbana, casual y deportiva</p>
+      <div className="navbar__brand" onClick={irACatalogo}>
+        <h2>ShopNMG</h2>
+        <p>Moda urbana y casual</p>
       </div>
 
       <nav className="navbar__links">
-        <a href="#">Inicio</a>
-        <a href="#">Catálogo</a>
-        <a href="#">Novedades</a>
+        <button type="button" onClick={irACatalogo}>
+          Catálogo
+        </button>
+
+        <button type="button" onClick={irACarrito} className="navbar__cart-button">
+          Carrito
+          {cantidadTotalProductos > 0 && (
+            <span className="navbar__cart-count">{cantidadTotalProductos}</span>
+          )}
+        </button>
       </nav>
     </header>
   );

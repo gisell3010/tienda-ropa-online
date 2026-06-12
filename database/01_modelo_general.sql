@@ -134,13 +134,11 @@ CREATE TABLE productos (
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     cat_id INT NOT NULL,
     est_id INT NOT NULL,
-    tal_id INT NOT NULL,
-    col_id INT NOT NULL,
+
     CONSTRAINT uq_producto_categoria_estilo UNIQUE (nombre, cat_id, est_id),
+
     FOREIGN KEY (cat_id) REFERENCES categorias(cat_id),
-    FOREIGN KEY (est_id) REFERENCES estilos(est_id),
-    FOREIGN KEY (tal_id) REFERENCES tallas(tal_id),
-    FOREIGN KEY (col_id) REFERENCES colores(col_id)
+    FOREIGN KEY (est_id) REFERENCES estilos(est_id)
 );
 
 -- =========================================
@@ -150,10 +148,15 @@ CREATE TABLE productos (
 CREATE TABLE inventarios (
     inv_id SERIAL PRIMARY KEY,
     pro_id INT NOT NULL,
+    tal_id INT NOT NULL,
+    col_id INT NOT NULL,
     stock INT NOT NULL CHECK (stock >= 0),
-    
+
     CONSTRAINT uq_producto_talla_color UNIQUE (pro_id, tal_id, col_id),
-    FOREIGN KEY (pro_id) REFERENCES productos(pro_id)
+
+    FOREIGN KEY (pro_id) REFERENCES productos(pro_id),
+    FOREIGN KEY (tal_id) REFERENCES tallas(tal_id),
+    FOREIGN KEY (col_id) REFERENCES colores(col_id)
 );
 
 -- =========================================
@@ -196,11 +199,5 @@ CREATE TABLE pagos (
     FOREIGN KEY (met_id) REFERENCES metodos_pago(met_id)
 );
 
--- =========================================
--- INSERT ROLES
--- =========================================
 
-INSERT INTO roles (nombre) VALUES
-('ADMIN'),
-('CLIENTE');
 

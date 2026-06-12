@@ -33,9 +33,7 @@ ON CONFLICT (nombre) DO NOTHING;
 INSERT INTO metodos_pago (nombre) VALUES
 ('Tarjeta de crédito'),
 ('Tarjeta de débito'),
-('Transferencia bancaria'),
-('PSE'),
-('Bre-B')
+('PSE')
 ON CONFLICT (nombre) DO NOTHING;
 
 

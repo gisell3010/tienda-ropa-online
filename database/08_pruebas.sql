@@ -37,6 +37,7 @@ SELECT * FROM vw_catalogo_productos_detalle;
 SELECT * FROM vw_catalogo_productos;
 SELECT * FROM vw_admin_productos;
 SELECT * FROM vw_resumen_ventas;
+SELECT * FROM vw_admin_inventario;
 
 REFRESH MATERIALIZED VIEW mv_resumen_ventas_productos;
 SELECT * FROM mv_resumen_ventas_productos;

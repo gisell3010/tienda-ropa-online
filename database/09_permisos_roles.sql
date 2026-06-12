@@ -25,30 +25,20 @@ $$;
 -- Consulta catálogo y compra mediante procedimiento
 -- =========================================================
 
+-- =========================================================
+-- PERMISOS CLIENTE
+-- =========================================================
+
+-- Solo consulta catálogo y datos necesarios para comprar
 GRANT SELECT ON
-    productos,
-    categorias,
-    estilos,
-    tallas,
-    colores,
-    inventarios,
+    vw_catalogo_productos,
+    vw_catalogo_productos_detalle,
     metodos_pago,
     departamentos,
     municipios
 TO rol_cliente;
 
-GRANT SELECT, INSERT, UPDATE ON
-    personas,
-    direcciones,
-    personas_direcciones
-TO rol_cliente;
-
-GRANT SELECT ON
-    ventas,
-    detalle_ventas,
-    pagos
-TO rol_cliente;
-
+-- Solo puede ejecutar registro y compra controlada
 GRANT EXECUTE ON PROCEDURE registrar_cliente(
     VARCHAR,
     VARCHAR,
@@ -58,7 +48,7 @@ GRANT EXECUTE ON PROCEDURE registrar_cliente(
     DATE
 ) TO rol_cliente;
 
-GRANT EXECUTE ON PROCEDURE realizar_compra_carrito(
+GRANT EXECUTE ON FUNCTION realizar_compra_carrito(
     INT,
     INT,
     JSONB
@@ -148,3 +138,36 @@ TO rol_superadmin;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO rol_cliente;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO rol_admin;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO rol_superadmin;
+
+-- =========================================================
+-- PERMISOS SOBRE VISTAS
+-- =========================================================
+
+-- Cliente: solo consulta catálogo e información necesaria para comprar
+GRANT SELECT ON
+    vw_inventario_simple,
+    vw_catalogo_productos_detalle,
+    vw_catalogo_productos
+TO rol_cliente;
+
+-- Administrador: consulta vistas operativas y administrativas
+GRANT SELECT ON
+    vw_inventario_simple,
+    vw_catalogo_productos_detalle,
+    vw_catalogo_productos,
+    vw_admin_productos,
+    vw_admin_inventario,
+    vw_resumen_ventas,
+    mv_resumen_ventas_productos
+TO rol_admin;
+
+-- Superadmin: consulta vistas administrativas, reportes y auditoría
+GRANT SELECT ON
+    vw_inventario_simple,
+    vw_catalogo_productos_detalle,
+    vw_catalogo_productos,
+    vw_admin_productos,
+    vw_admin_inventario,
+    vw_resumen_ventas,
+    mv_resumen_ventas_productos
+TO rol_superadmin;

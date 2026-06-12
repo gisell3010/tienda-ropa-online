@@ -376,6 +376,8 @@ CREATE OR REPLACE FUNCTION realizar_compra_carrito(
 )
 RETURNS INT
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_ven_id INT;

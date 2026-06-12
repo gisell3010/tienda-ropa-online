@@ -10,11 +10,14 @@ SELECT fn_estado_producto(10);
 
 CALL registrar_inventario(1, 10, 1, 1);
 CALL aumentar_stock(1, 5);
-CALL realizar_compra(1, 1, 1, 1);
-CALL realizar_compra_carrito(
+
+SELECT realizar_compra_carrito(
     1,
     1,
-    '[{"inv_id": 1, "cantidad": 2}]'::jsonb
+    '[
+        {"inv_id": 1, "cantidad": 2},
+        {"inv_id": 3, "cantidad": 1}
+    ]'::jsonb
 );
 
 UPDATE productos
@@ -34,6 +37,7 @@ SELECT * FROM vw_catalogo_productos_detalle;
 SELECT * FROM vw_catalogo_productos;
 SELECT * FROM vw_admin_productos;
 SELECT * FROM vw_resumen_ventas;
+SELECT * FROM vw_admin_inventario;
 
 REFRESH MATERIALIZED VIEW mv_resumen_ventas_productos;
 SELECT * FROM mv_resumen_ventas_productos;

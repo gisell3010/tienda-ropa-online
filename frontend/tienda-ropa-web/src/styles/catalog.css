@@ -533,9 +533,6 @@
   .stock-card {
     justify-content: flex-start;
   }
-<<<<<<< HEAD
-}
-=======
 }
 
 /* MENSAJES DEL CATÁLOGO */
@@ -584,4 +581,3 @@
   font-size: 13px;
   font-weight: 700;
 }
->>>>>>> fdb5093 (fix: corregir errores del catálogo frontend)

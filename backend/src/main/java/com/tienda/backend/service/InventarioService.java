@@ -4,8 +4,10 @@ import com.tienda.backend.dto.StockResponseDTO;
 
 public interface InventarioService {
 
-    StockResponseDTO validarStock(
-            Integer inventarioId,
-            Integer cantidad
+   StockResponseDTO validarStock(
+        Integer productoId,
+        Integer tallaId,
+        Integer colorId,
+        Integer cantidad
     );
 }

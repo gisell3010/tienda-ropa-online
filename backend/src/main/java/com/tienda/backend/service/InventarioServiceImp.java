@@ -20,17 +20,32 @@ public class InventarioServiceImp implements InventarioService {
 
     @Override
     public StockResponseDTO validarStock(
-            Integer inventarioId,
+            Integer productoId,
+            Integer tallaId,
+            Integer colorId,
             Integer cantidad) {
 
+        if (cantidad == null || cantidad <= 0) {
+            return new StockResponseDTO(
+                    false,
+                    0,
+                    "La cantidad debe ser mayor que cero"
+            );
+        }
+
         Optional<Inventario> inventario =
-                inventarioRepository.findById(inventarioId);
+                inventarioRepository
+                        .findByProductoProIdAndTallaTalIdAndColorColId(
+                                productoId,
+                                tallaId,
+                                colorId
+                        );
 
         if (inventario.isEmpty()) {
             return new StockResponseDTO(
                     false,
                     0,
-                    "Inventario no encontrado"
+                    "No existe la combinación producto-talla-color"
             );
         }
 

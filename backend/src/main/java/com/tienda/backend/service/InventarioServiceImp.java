@@ -19,35 +19,50 @@ public class InventarioServiceImp implements InventarioService {
     }
 
     @Override
-    public StockResponseDTO validarStock(
-            Integer inventarioId,
-            Integer cantidad) {
+public StockResponseDTO validarStock(
+        Integer productoId,
+        Integer tallaId,
+        Integer colorId,
+        Integer cantidad) {
 
-        Optional<Inventario> inventario =
-                inventarioRepository.findById(inventarioId);
-
-        if (inventario.isEmpty()) {
-            return new StockResponseDTO(
-                    false,
-                    0,
-                    "Inventario no encontrado"
-            );
-        }
-
-        Integer stockActual = inventario.get().getStock();
-
-        if (stockActual >= cantidad) {
-            return new StockResponseDTO(
-                    true,
-                    stockActual,
-                    "Stock disponible"
-            );
-        }
-
+    if (cantidad == null || cantidad <= 0) {
         return new StockResponseDTO(
                 false,
-                stockActual,
-                "Stock insuficiente"
+                0,
+                "La cantidad debe ser mayor que cero"
         );
+    }
+
+    Optional<Inventario> inventario =
+            inventarioRepository
+                    .findByProductoProIdAndTallaTalIdAndColorColId(
+                            productoId,
+                            tallaId,
+                            colorId
+                    );
+
+    if (inventario.isEmpty()) {
+        return new StockResponseDTO(
+                false,
+                0,
+                "No existe la combinación producto-talla-color"
+        );
+    }
+
+    Integer stockActual = inventario.get().getStock();
+
+    if (stockActual >= cantidad) {
+        return new StockResponseDTO(
+                true,
+                stockActual,
+                "Stock disponible"
+        );
+    }
+
+    return new StockResponseDTO(
+            false,
+            stockActual,
+            "Stock insuficiente"
+    );
     }
 }

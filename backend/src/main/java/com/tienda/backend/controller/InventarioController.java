@@ -19,12 +19,16 @@ public class InventarioController {
 
     @GetMapping("/api/inventarios/validar")
     public StockResponseDTO validarStock(
-            @RequestParam Integer inventarioId,
+            @RequestParam Integer productoId,
+            @RequestParam Integer tallaId,
+            @RequestParam Integer colorId,
             @RequestParam Integer cantidad) {
 
         return inventarioService.validarStock(
-                inventarioId,
-                cantidad
+            productoId,
+            tallaId,
+            colorId,
+            cantidad
         );
     }
 }

@@ -5,7 +5,9 @@ import com.tienda.backend.dto.StockResponseDTO;
 public interface InventarioService {
 
     StockResponseDTO validarStock(
-            Integer inventarioId,
-            Integer cantidad
+        Integer productoId,
+        Integer tallaId,
+        Integer colorId,
+        Integer cantidad
     );
 }

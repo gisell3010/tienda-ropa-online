@@ -40,6 +40,16 @@ function ProductCard({ product }) {
   const [colorSeleccionado, setColorSeleccionado] = useState("");
   const [cantidad, setCantidad] = useState(1);
 
+  const inventarioSeleccionado = product.inventarios?.find(
+    (inventario) =>
+      inventario.talla === tallaSeleccionada &&
+      inventario.color === colorSeleccionado
+  );
+
+  const stockSeleccionado = inventarioSeleccionado
+    ? Number(inventarioSeleccionado.stock)
+    : stock;
+
   const precioCOP = new Intl.NumberFormat("es-CO", {
     style: "currency",
     currency: "COP",
@@ -74,7 +84,7 @@ function ProductCard({ product }) {
   };
 
   const aumentarCantidad = () => {
-    if (!agotado && cantidad < stock) {
+    if (!agotado && cantidad < stockSeleccionado) {
       setCantidad(cantidad + 1);
     }
   };
@@ -106,11 +116,36 @@ if (!colorSeleccionado) {
   return;
 }
 
+    if (!inventarioSeleccionado) {
+      mostrarNotificacion(
+        "La talla y el color seleccionados no están disponibles para este producto",
+        "error"
+      );
+      return;
+    }
+
+    if (stockSeleccionado <= 0) {
+      mostrarNotificacion(
+        "Este producto está agotado en la talla y color seleccionados",
+        "error"
+      );
+      return;
+    }
+
+    if (cantidad > stockSeleccionado) {
+      mostrarNotificacion(
+        `Actualmente solo contamos con ${stockSeleccionado} unidad(es) disponibles.`,
+        "error"
+      );
+      return;
+    }
+
     const resultado = agregarProducto(
       product,
       tallaSeleccionada,
       colorSeleccionado,
-      cantidad
+      cantidad,
+      inventarioSeleccionado
     );
 
     if (resultado.ok) {
@@ -218,7 +253,13 @@ if (!colorSeleccionado) {
               }
             >
               <span>Disponible:</span>
-              <strong>{agotado ? "Sin stock" : `${stock} unidades`}</strong>
+              <strong>
+                {agotado
+                  ? "Sin stock"
+                  : tallaSeleccionada && colorSeleccionado
+                    ? `${stockSeleccionado} unidades`
+                    : `${stock} unidades`}
+              </strong>
             </div>
 
             <div className="product-card__cart-actions">

@@ -44,7 +44,7 @@ export function CartProvider({ children }) {
     }, 3000);
   };
 
-  const agregarProducto = (producto, talla, color, cantidad = 1) => {
+  const agregarProducto = (producto, talla, color, cantidad = 1, inventario = null) => {
     const cantidadNumerica = Number(cantidad);
 
     if (!producto || !talla || !color || cantidadNumerica <= 0) {
@@ -55,8 +55,17 @@ export function CartProvider({ children }) {
     }
 
     const productoId = producto.id || producto.proId || producto.pro_id;
-    const itemId = `${productoId}-${talla}-${color}`;
+    const inventarioId = inventario?.inventarioId;
 
+    if (!inventarioId) {
+      return {
+        ok: false,
+        mensaje: "La talla y el color seleccionados no están disponibles para este producto."
+      };
+    }
+
+    const itemId = `inv-${inventarioId}`;
+    
     setCarrito((carritoActual) => {
       const productoExistente = carritoActual.find((item) => item.itemId === itemId);
 
@@ -73,17 +82,18 @@ export function CartProvider({ children }) {
       }
 
       const nuevoItem = {
-        itemId,
-        productoId,
-        nombre: producto.nombre,
-        precio: Number(producto.precio) || 0,
-        imagen: producto.imagen,
-        talla,
-        color,
-        cantidad: cantidadNumerica,
-        stockDisponible: Number(producto.stock) || 0,
-        subtotal: (Number(producto.precio) || 0) * cantidadNumerica
-      };
+      itemId,
+      inventarioId,
+      productoId,
+      nombre: producto.nombre,
+      precio: Number(producto.precio) || 0,
+      imagen: producto.imagen,
+      talla,
+      color,
+      cantidad: cantidadNumerica,
+      stockDisponible: Number(inventario.stock) || 0,
+      subtotal: (Number(producto.precio) || 0) * cantidadNumerica
+    };
 
       return [...carritoActual, nuevoItem];
     });
@@ -96,15 +106,23 @@ export function CartProvider({ children }) {
 
   const aumentarCantidad = (itemId) => {
     setCarrito((carritoActual) =>
-      carritoActual.map((item) =>
-        item.itemId === itemId
-          ? {
-              ...item,
-              cantidad: item.cantidad + 1,
-              subtotal: (item.cantidad + 1) * item.precio
-            }
-          : item
-      )
+      carritoActual.map((item) => {
+        if (item.itemId !== itemId) return item;
+
+        if (item.cantidad >= item.stockDisponible) {
+          mostrarNotificacion(
+            `Solo hay ${item.stockDisponible} unidades disponibles.`,
+            "error"
+          );
+          return item;
+        }
+
+        return {
+          ...item,
+          cantidad: item.cantidad + 1,
+          subtotal: (item.cantidad + 1) * item.precio
+        };
+      })
     );
   };
 

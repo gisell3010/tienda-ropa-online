@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { validarStockCarrito } from "../services/productosService";
 import "../styles/checkout.css";
 
 function CheckoutPage({ irACarrito, irACatalogo }) {
-  const { carrito, subtotalGeneral, costoEnvio, totalCompra, mostrarNotificacion } =
-    useCart();
+  const {
+    carrito,
+    subtotalGeneral,
+    costoEnvio,
+    totalCompra,
+    mostrarNotificacion,
+    vaciarCarrito
+  } = useCart();
 
   const [formulario, setFormulario] = useState({
     nombreCompleto: "",
@@ -25,6 +32,9 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
 
   const [mostrarPortalPse, setMostrarPortalPse] = useState(false);
   const [mensajeCheckout, setMensajeCheckout] = useState("");
+  const [procesandoCompra, setProcesandoCompra] = useState(false);
+  const [compraFinalizada, setCompraFinalizada] = useState(false);
+  const [numeroOrden, setNumeroOrden] = useState("");
 
   const formatoCOP = (valor) => {
     return new Intl.NumberFormat("es-CO", {
@@ -121,7 +131,48 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     return validarPse();
   };
 
-  const manejarSubmit = (evento) => {
+  const finalizarCompraConBackend = async () => {
+    try {
+      setProcesandoCompra(true);
+
+      const validacionStock = await validarStockCarrito(carrito);
+
+      if (!validacionStock.ok) {
+        setMensajeCheckout(validacionStock.mensaje);
+        mostrarNotificacion(validacionStock.mensaje, "error");
+        return;
+      }
+
+      const ordenGenerada = `ORD-${Date.now().toString().slice(-6)}`;
+
+      setNumeroOrden(ordenGenerada);
+
+      setMensajeCheckout(
+  `¡Gracias por tu compra! Tu pedido ha sido procesado con éxito. Número de orden: ${ordenGenerada}. Pronto enviaremos los detalles de la entrega a tu correo electrónico.`
+);
+
+setCompraFinalizada(true);
+mostrarNotificacion("Compra procesada correctamente.", "success");
+vaciarCarrito();
+
+      setCompraFinalizada(true);
+      mostrarNotificacion("Compra validada correctamente con el backend.", "success");
+      vaciarCarrito();
+    } catch (error) {
+      setMensajeCheckout(
+        error.message || "No se pudo conectar con el backend para validar el stock."
+      );
+
+      mostrarNotificacion(
+        error.message || "No se pudo conectar con el backend para validar el stock.",
+        "error"
+      );
+    } finally {
+      setProcesandoCompra(false);
+    }
+  };
+
+  const manejarSubmit = async (evento) => {
     evento.preventDefault();
 
     if (carrito.length === 0) {
@@ -145,22 +196,16 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         return;
       }
 
-      setMensajeCheckout(
-        "Datos validados correctamente. En la siguiente tarea se conectará el checkout con el backend para registrar la compra."
-      );
-      mostrarNotificacion("Datos de compra validados correctamente.", "success");
+      await finalizarCompraConBackend();
       return;
     }
 
     setMostrarPortalPse(true);
   };
 
-  const aprobarPse = () => {
+  const aprobarPse = async () => {
     setMostrarPortalPse(false);
-    setMensajeCheckout(
-      "Transacción PSE aprobada en la simulación. En la siguiente tarea se conectará el checkout con el backend."
-    );
-    mostrarNotificacion("Transacción PSE aprobada.", "success");
+    await finalizarCompraConBackend();
   };
 
   const cancelarPse = () => {
@@ -171,12 +216,33 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     mostrarNotificacion("Transacción PSE cancelada.", "error");
   };
 
+  if (compraFinalizada) {
+    return (
+      <main className="checkout-page">
+        <section className="checkout-empty">
+          <span className="checkout-empty__icon">✅</span>
+
+          <h1>Compra procesada con éxito</h1>
+
+          <p>
+  Tu pedido fue procesado correctamente. Número de orden:
+  <strong> {numeroOrden}</strong>.
+</p>
+
+          <button onClick={irACatalogo}>Volver al catálogo</button>
+        </section>
+      </main>
+    );
+  }
+
   if (carrito.length === 0) {
     return (
       <main className="checkout-page">
         <section className="checkout-empty">
           <span className="checkout-empty__icon">🛒</span>
+
           <h1>No tienes productos para pagar</h1>
+
           <p>
             Agrega productos al carrito antes de continuar con el proceso de compra.
           </p>
@@ -404,18 +470,25 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
           </div>
 
           {mensajeCheckout && (
-            <div className="checkout-banner">
-              {mensajeCheckout}
-            </div>
+            <div className="checkout-banner">{mensajeCheckout}</div>
           )}
 
           <div className="checkout-actions">
-            <button type="button" className="checkout-actions__back" onClick={irACarrito}>
+            <button
+              type="button"
+              className="checkout-actions__back"
+              onClick={irACarrito}
+              disabled={procesandoCompra}
+            >
               Volver al carrito
             </button>
 
-            <button type="submit" className="checkout-actions__pay">
-              Pagar ahora
+            <button
+              type="submit"
+              className="checkout-actions__pay"
+              disabled={procesandoCompra}
+            >
+              {procesandoCompra ? "Validando stock..." : "Pagar ahora"}
             </button>
           </div>
         </form>
@@ -460,9 +533,12 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         <div className="pse-modal">
           <div className="pse-modal__content">
             <span className="pse-modal__label">Portal simulado PSE</span>
+
             <h2>{formulario.banco}</h2>
+
             <p>
-              Estás simulando el pago desde el banco seleccionado. Elige una acción para continuar.
+              Estás simulando el pago desde el banco seleccionado. Elige una
+              acción para continuar.
             </p>
 
             <div className="pse-modal__actions">

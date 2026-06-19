@@ -9,34 +9,72 @@ public class ProductoDTO {
     private Double precio;
     private String categoria;
     private String estilo;
-    private List<InventarioDTO> existencias; // Lista de tallas, colores y stock
-    private boolean agotado; // Atributo clave para la regla de negocio (Stock = 0)
+    private List<InventarioDTO> existencias;
+    private boolean agotado;
 
-    // Constructor vacío
     public ProductoDTO() {}
 
-    // --- GETTERS Y SETTERS ---
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    public Integer getId() {
+        return id;
+    }
 
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public Double getPrecio() { return precio; }
-    public void setPrecio(Double precio) { this.precio = precio; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public String getCategoria() { return categoria; }
-    public void setCategoria(String categoria) { this.categoria = categoria; }
+    public String getDescripcion() {
+        return descripcion;
+    }
 
-    public String getStyle() { return estilo; }
-    public void setEstilo(String estilo) { this.estilo = estilo; }
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
 
-    public List<InventarioDTO> getExistencias() { return existencias; }
-    public void setExistencias(List<InventarioDTO> existencias) { this.existencias = existencias; }
+    public Double getPrecio() {
+        return precio;
+    }
 
-    public boolean isAgotado() { return agotado; }
-    public void setAgotado(boolean agotado) { this.agotado = agotado; }
+    public void setPrecio(Double precio) {
+        this.precio = precio;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public String getEstilo() {
+        return estilo;
+    }
+
+    public void setEstilo(String estilo) {
+        this.estilo = estilo;
+    }
+
+    public List<InventarioDTO> getExistencias() {
+        return existencias;
+    }
+
+    public void setExistencias(List<InventarioDTO> existencias) {
+        this.existencias = existencias;
+    }
+
+    public boolean isAgotado() {
+        return agotado;
+    }
+
+    public void setAgotado(boolean agotado) {
+        this.agotado = agotado;
+    }
 }

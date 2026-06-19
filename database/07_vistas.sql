@@ -165,6 +165,135 @@ GROUP BY
 
 
 -- =========================================================
+-- VISTAS PARAMÉTRICAS
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_categorias AS
+SELECT cat_id, nombre
+FROM categorias;
+
+CREATE OR REPLACE VIEW vw_estilos AS
+SELECT est_id, nombre
+FROM estilos;
+
+CREATE OR REPLACE VIEW vw_tallas AS
+SELECT tal_id, nombre
+FROM tallas;
+
+CREATE OR REPLACE VIEW vw_colores AS
+SELECT col_id, nombre
+FROM colores;
+
+CREATE OR REPLACE VIEW vw_metodos_pago AS
+SELECT met_id, nombre
+FROM metodos_pago;
+
+
+-- =========================================================
+-- VISTA: DETALLE DE VENTAS PARA ADMIN
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_detalle_ventas_admin AS
+SELECT
+    v.ven_id,
+    v.fecha,
+    pe.nombre AS cliente,
+    p.nombre AS producto,
+    t.nombre AS talla,
+    co.nombre AS color,
+    d.cantidad,
+    d.precio_unitario,
+    d.cantidad * d.precio_unitario AS subtotal
+FROM detalle_ventas d
+INNER JOIN ventas v ON v.ven_id = d.ven_id
+INNER JOIN personas pe ON pe.per_id = v.per_id
+INNER JOIN inventarios i ON i.inv_id = d.inv_id
+INNER JOIN productos p ON p.pro_id = i.pro_id
+INNER JOIN tallas t ON t.tal_id = i.tal_id
+INNER JOIN colores co ON co.col_id = i.col_id;
+
+
+-- =========================================================
+-- VISTA: PEDIDOS DEL CLIENTE
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_pedidos_cliente AS
+SELECT
+    v.ven_id,
+    v.per_id,
+    pe.nombre AS cliente,
+    v.fecha,
+    COALESCE(mp.nombre, 'Sin método de pago') AS metodo_pago,
+    COALESCE(pa.monto, 0) AS total_pagado
+FROM ventas v
+INNER JOIN personas pe ON pe.per_id = v.per_id
+LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
+LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id;
+
+
+-- =========================================================
+-- VISTA: DETALLE DEL PEDIDO DEL CLIENTE
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_detalle_pedido_cliente AS
+SELECT
+    v.ven_id,
+    v.per_id,
+    p.nombre AS producto,
+    t.nombre AS talla,
+    co.nombre AS color,
+    d.cantidad,
+    d.precio_unitario,
+    d.cantidad * d.precio_unitario AS subtotal
+FROM detalle_ventas d
+INNER JOIN ventas v ON v.ven_id = d.ven_id
+INNER JOIN inventarios i ON i.inv_id = d.inv_id
+INNER JOIN productos p ON p.pro_id = i.pro_id
+INNER JOIN tallas t ON t.tal_id = i.tal_id
+INNER JOIN colores co ON co.col_id = i.col_id;
+
+
+-- =========================================================
+-- VISTA: USUARIOS DEL SISTEMA
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_usuarios_sistema AS
+SELECT
+    p.per_id,
+    p.nombre,
+    p.telefono,
+    p.correo,
+    p.genero,
+    p.fecha_nacimiento,
+    r.nombre AS rol
+FROM personas p
+INNER JOIN roles r ON r.rol_id = p.rol_id;
+
+
+-- =========================================================
+-- VISTA: AUDITORÍA GENERAL
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_auditoria_general AS
+SELECT 'personas' AS tabla, aud_id, operacion, fecha_cambio, registrado_por
+FROM aud_personas
+UNION ALL
+SELECT 'productos' AS tabla, aud_id, operacion, fecha_cambio, registrado_por
+FROM aud_productos
+UNION ALL
+SELECT 'inventarios' AS tabla, aud_id, operacion, fecha_cambio, registrado_por
+FROM aud_inventarios
+UNION ALL
+SELECT 'ventas' AS tabla, aud_id, operacion, fecha_cambio, registrado_por
+FROM aud_ventas
+UNION ALL
+SELECT 'detalle_ventas' AS tabla, aud_id, operacion, fecha_cambio, registrado_por
+FROM aud_detalle_ventas
+UNION ALL
+SELECT 'pagos' AS tabla, aud_id, operacion, fecha_cambio, registrado_por
+FROM aud_pagos;
+
+-- =========================================================
 -- VISTA MATERIALIZADA: RESUMEN DE VENTAS POR PRODUCTO
 -- =========================================================
 

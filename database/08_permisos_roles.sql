@@ -3,7 +3,10 @@
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 
--- Roles de PostgreSQL
+-- =========================================================
+-- CREACIÓN DE ROLES DE POSTGRESQL
+-- =========================================================
+
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rol_cliente') THEN
@@ -20,25 +23,27 @@ BEGIN
 END;
 $$;
 
--- =========================================================
--- CLIENTE
--- Consulta catálogo y compra mediante procedimiento
--- =========================================================
 
 -- =========================================================
 -- PERMISOS CLIENTE
+-- Consulta catálogo, datos paramétricos y compra controlada
 -- =========================================================
 
--- Solo consulta catálogo y datos necesarios para comprar
 GRANT SELECT ON
     vw_catalogo_productos,
     vw_catalogo_productos_detalle,
+    vw_pedidos_cliente,
+    vw_detalle_pedido_cliente,
+    vw_categorias,
+    vw_estilos,
+    vw_tallas,
+    vw_colores,
+    vw_metodos_pago,
     metodos_pago,
     departamentos,
     municipios
 TO rol_cliente;
 
--- Solo puede ejecutar registro y compra controlada
 GRANT EXECUTE ON PROCEDURE registrar_cliente(
     VARCHAR,
     VARCHAR,
@@ -54,9 +59,10 @@ GRANT EXECUTE ON FUNCTION realizar_compra_carrito(
     JSONB
 ) TO rol_cliente;
 
+
 -- =========================================================
--- ADMIN
--- Administra la operación de la tienda
+-- PERMISOS ADMIN
+-- Administra productos, inventario y operación de la tienda
 -- =========================================================
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON
@@ -80,7 +86,21 @@ GRANT SELECT ON
     municipios,
     ventas,
     detalle_ventas,
-    pagos
+    pagos,
+    vw_inventario_simple,
+    vw_catalogo_productos_detalle,
+    vw_catalogo_productos,
+    vw_admin_productos,
+    vw_admin_inventario,
+    vw_resumen_ventas,
+    vw_detalle_ventas_admin,
+    vw_usuarios_sistema,
+    vw_categorias,
+    vw_estilos,
+    vw_tallas,
+    vw_colores,
+    vw_metodos_pago,
+    mv_resumen_ventas_productos
 TO rol_admin;
 
 GRANT EXECUTE ON PROCEDURE registrar_inventario(
@@ -95,9 +115,35 @@ GRANT EXECUTE ON PROCEDURE aumentar_stock(
     INT
 ) TO rol_admin;
 
+GRANT EXECUTE ON PROCEDURE registrar_producto(
+    VARCHAR,
+    NUMERIC,
+    INT,
+    INT
+) TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE editar_producto(
+    INT,
+    VARCHAR,
+    NUMERIC,
+    INT,
+    INT
+) TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_producto(
+    INT,
+    BOOLEAN
+) TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE actualizar_inventario(
+    INT,
+    INT
+) TO rol_admin;
+
+
 -- =========================================================
--- SUPERADMIN
--- Supervisa y audita
+-- PERMISOS SUPERADMIN
+-- Supervisa, audita y controla roles
 -- =========================================================
 
 GRANT SELECT ON
@@ -115,59 +161,47 @@ GRANT SELECT ON
     municipios,
     ventas,
     detalle_ventas,
-    pagos
-TO rol_superadmin;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON roles
-TO rol_superadmin;
-
-GRANT SELECT ON
+    pagos,
     aud_personas,
     aud_productos,
     aud_inventarios,
     aud_ventas,
     aud_detalle_ventas,
-    aud_pagos
+    aud_pagos,
+    vw_inventario_simple,
+    vw_catalogo_productos_detalle,
+    vw_catalogo_productos,
+    vw_admin_productos,
+    vw_admin_inventario,
+    vw_resumen_ventas,
+    vw_detalle_ventas_admin,
+    vw_pedidos_cliente,
+    vw_detalle_pedido_cliente,
+    vw_usuarios_sistema,
+    vw_auditoria_general,
+    vw_categorias,
+    vw_estilos,
+    vw_tallas,
+    vw_colores,
+    vw_metodos_pago,
+    mv_resumen_ventas_productos
 TO rol_superadmin;
 
--- =========================================================
--- SECUENCIAS
--- Necesarias para tablas con SERIAL
--- =========================================================
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    roles
+TO rol_superadmin;
 
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO rol_cliente;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO rol_admin;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO rol_superadmin;
 
 -- =========================================================
--- PERMISOS SOBRE VISTAS
+-- PERMISOS SOBRE SECUENCIAS
+-- Necesarios para tablas con SERIAL
 -- =========================================================
 
--- Cliente: solo consulta catálogo e información necesaria para comprar
-GRANT SELECT ON
-    vw_inventario_simple,
-    vw_catalogo_productos_detalle,
-    vw_catalogo_productos
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public
 TO rol_cliente;
 
--- Administrador: consulta vistas operativas y administrativas
-GRANT SELECT ON
-    vw_inventario_simple,
-    vw_catalogo_productos_detalle,
-    vw_catalogo_productos,
-    vw_admin_productos,
-    vw_admin_inventario,
-    vw_resumen_ventas,
-    mv_resumen_ventas_productos
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public
 TO rol_admin;
 
--- Superadmin: consulta vistas administrativas, reportes y auditoría
-GRANT SELECT ON
-    vw_inventario_simple,
-    vw_catalogo_productos_detalle,
-    vw_catalogo_productos,
-    vw_admin_productos,
-    vw_admin_inventario,
-    vw_resumen_ventas,
-    mv_resumen_ventas_productos
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public
 TO rol_superadmin;

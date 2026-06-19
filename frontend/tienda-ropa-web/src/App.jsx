@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "./components/Navbar";
 import CatalogPage from "./pages/CatalogPage";
 import CartPage from "./pages/CartPage";
@@ -15,42 +15,65 @@ import "./styles/checkout.css";
 import "./styles/auth.css";
 
 function App() {
-  const [vistaActual, setVistaActual] = useState("login");
+  const [rutaActual, setRutaActual] = useState(window.location.pathname);
 
   const { notificacion } = useCart();
   const { usuario, estaAutenticado, rolUsuario, cerrarSesion } = useAuth();
 
+  useEffect(() => {
+    const manejarCambioRuta = () => {
+      setRutaActual(window.location.pathname);
+    };
+
+    window.addEventListener("popstate", manejarCambioRuta);
+
+    return () => {
+      window.removeEventListener("popstate", manejarCambioRuta);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (rutaActual === "/") {
+      navegar("/login");
+    }
+  }, [rutaActual]);
+
+  const navegar = (ruta) => {
+    window.history.pushState({}, "", ruta);
+    setRutaActual(ruta);
+  };
+
   const irALogin = () => {
-    setVistaActual("login");
+    navegar("/login");
   };
 
   const irARegistro = () => {
-    setVistaActual("registro");
+    navegar("/registro");
   };
 
   const irACatalogo = () => {
-    setVistaActual("catalogo");
+    navegar("/shop");
   };
 
   const irACarrito = () => {
-    setVistaActual("carrito");
+    navegar("/shop/carrito");
   };
 
   const irACheckout = () => {
-    setVistaActual("checkout");
+    navegar("/shop/checkout");
   };
 
   const irAAdmin = () => {
-    setVistaActual("admin");
+    navegar("/admin");
   };
 
   const irASuperadmin = () => {
-    setVistaActual("superadmin");
+    navegar("/superadmin");
   };
 
   const cerrarSesionUsuario = () => {
     cerrarSesion();
-    setVistaActual("login");
+    navegar("/login");
   };
 
   const obtenerRol = (usuarioAutenticado) => {
@@ -66,21 +89,21 @@ function App() {
     const rol = obtenerRol(usuarioAutenticado);
 
     if (rol === "CLIENTE") {
-      setVistaActual("catalogo");
+      navegar("/shop");
       return;
     }
 
     if (rol === "ADMIN") {
-      setVistaActual("admin");
+      navegar("/admin");
       return;
     }
 
     if (rol === "SUPERADMIN") {
-      setVistaActual("superadmin");
+      navegar("/superadmin");
       return;
     }
 
-    setVistaActual("login");
+    navegar("/login");
   };
 
   const usuarioPuedeEntrar = (rolesPermitidos) => {
@@ -89,6 +112,42 @@ function App() {
     }
 
     return rolesPermitidos.includes(rolUsuario.toUpperCase());
+  };
+
+  const mostrarAccesoNoPermitido = () => {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="auth-card__header">
+            <span className="auth-card__label">Acceso no permitido</span>
+            <h1>No tienes permiso</h1>
+            <p>No puedes acceder a esta pantalla con tu rol actual.</p>
+          </div>
+
+          <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
+            Volver al login
+          </button>
+        </section>
+      </main>
+    );
+  };
+
+  const mostrarSesionRequerida = () => {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="auth-card__header">
+            <span className="auth-card__label">Sesión requerida</span>
+            <h1>Inicia sesión</h1>
+            <p>Debes iniciar sesión para acceder a esta pantalla.</p>
+          </div>
+
+          <button className="auth-panel-button" onClick={irALogin}>
+            Ir al login
+          </button>
+        </section>
+      </main>
+    );
   };
 
   const esError = notificacion.tipo === "error";
@@ -158,26 +217,18 @@ function App() {
     color: "#374151"
   };
 
-  if (vistaActual === "login") {
-    return (
-      <>
-        <LoginPage irARegistro={irARegistro} redirigirPorRol={redirigirPorRol} />
-      </>
-    );
-  }
-
-  if (vistaActual === "registro") {
-    return (
-      <>
-        <RegisterPage irALogin={irALogin} />
-      </>
-    );
-  }
-
-  if (!estaAutenticado) {
+  if (rutaActual === "/login") {
     return (
       <LoginPage irARegistro={irARegistro} redirigirPorRol={redirigirPorRol} />
     );
+  }
+
+  if (rutaActual === "/registro") {
+    return <RegisterPage irALogin={irALogin} />;
+  }
+
+  if (!estaAutenticado) {
+    return mostrarSesionRequerida();
   }
 
   return (
@@ -207,67 +258,84 @@ function App() {
         </div>
       )}
 
-      {vistaActual === "catalogo" && usuarioPuedeEntrar(["CLIENTE"]) && (
-        <CatalogPage />
-      )}
+      {rutaActual === "/shop" &&
+        (usuarioPuedeEntrar(["CLIENTE"]) ? <CatalogPage /> : mostrarAccesoNoPermitido())}
 
-      {vistaActual === "carrito" && usuarioPuedeEntrar(["CLIENTE"]) && (
-        <CartPage irACatalogo={irACatalogo} irACheckout={irACheckout} />
-      )}
+      {rutaActual === "/shop/carrito" &&
+        (usuarioPuedeEntrar(["CLIENTE"]) ? (
+          <CartPage irACatalogo={irACatalogo} irACheckout={irACheckout} />
+        ) : (
+          mostrarAccesoNoPermitido()
+        ))}
 
-      {vistaActual === "checkout" && usuarioPuedeEntrar(["CLIENTE"]) && (
-        <CheckoutPage irACarrito={irACarrito} irACatalogo={irACatalogo} />
-      )}
+      {rutaActual === "/shop/checkout" &&
+        (usuarioPuedeEntrar(["CLIENTE"]) ? (
+          <CheckoutPage irACarrito={irACarrito} irACatalogo={irACatalogo} />
+        ) : (
+          mostrarAccesoNoPermitido()
+        ))}
 
-      {vistaActual === "admin" && usuarioPuedeEntrar(["ADMIN"]) && (
-        <main className="auth-page">
-          <section className="auth-card auth-card--wide">
-            <div className="auth-card__header">
-              <span className="auth-card__label">Panel administrativo</span>
-              <h1>Bienvenido, administrador</h1>
-              <p>
-                Desde esta sección se gestionarán productos, inventario,
-                pedidos, ventas y reportes.
-              </p>
-            </div>
+      {rutaActual === "/admin" &&
+        (usuarioPuedeEntrar(["ADMIN"]) ? (
+          <main className="auth-page">
+            <section className="auth-card auth-card--wide">
+              <div className="auth-card__header">
+                <span className="auth-card__label">Panel administrativo</span>
+                <h1>Bienvenido, administrador</h1>
+                <p>
+                  Desde esta sección se gestionarán productos, inventario,
+                  pedidos, ventas y reportes.
+                </p>
+              </div>
 
-            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
-              Cerrar sesión
-            </button>
-          </section>
-        </main>
-      )}
+              <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
+                Cerrar sesión
+              </button>
+            </section>
+          </main>
+        ) : (
+          mostrarAccesoNoPermitido()
+        ))}
 
-      {vistaActual === "superadmin" && usuarioPuedeEntrar(["SUPERADMIN"]) && (
-        <main className="auth-page">
-          <section className="auth-card auth-card--wide">
-            <div className="auth-card__header">
-              <span className="auth-card__label">Panel superadministrador</span>
-              <h1>Bienvenido, superadministrador</h1>
-              <p>
-                Desde esta sección se gestionarán usuarios, roles, auditorías y
-                reportes generales.
-              </p>
-            </div>
+      {rutaActual === "/superadmin" &&
+        (usuarioPuedeEntrar(["SUPERADMIN"]) ? (
+          <main className="auth-page">
+            <section className="auth-card auth-card--wide">
+              <div className="auth-card__header">
+                <span className="auth-card__label">Panel superadministrador</span>
+                <h1>Bienvenido, superadministrador</h1>
+                <p>
+                  Desde esta sección se gestionarán usuarios, roles, auditorías y
+                  reportes generales.
+                </p>
+              </div>
 
-            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
-              Cerrar sesión
-            </button>
-          </section>
-        </main>
-      )}
+              <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
+                Cerrar sesión
+              </button>
+            </section>
+          </main>
+        ) : (
+          mostrarAccesoNoPermitido()
+        ))}
 
-      {vistaActual === "catalogo" && !usuarioPuedeEntrar(["CLIENTE"]) && (
+      {![
+        "/shop",
+        "/shop/carrito",
+        "/shop/checkout",
+        "/admin",
+        "/superadmin"
+      ].includes(rutaActual) && (
         <main className="auth-page">
           <section className="auth-card">
             <div className="auth-card__header">
-              <span className="auth-card__label">Acceso no permitido</span>
-              <h1>No tienes permiso</h1>
-              <p>No puedes acceder a esta pantalla con tu rol actual.</p>
+              <span className="auth-card__label">Ruta no encontrada</span>
+              <h1>Página no disponible</h1>
+              <p>La pantalla solicitada no existe o no está disponible.</p>
             </div>
 
-            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
-              Volver al login
+            <button className="auth-panel-button" onClick={redirigirPorRol.bind(null, usuario)}>
+              Volver a mi inicio
             </button>
           </section>
         </main>

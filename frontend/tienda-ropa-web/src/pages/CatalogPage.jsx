@@ -111,6 +111,10 @@ function CatalogPage() {
   };
 
   const obtenerInventarios = (productoBackend) => {
+    if (Array.isArray(productoBackend.existencias)) {
+      return productoBackend.existencias;
+    }
+
     if (Array.isArray(productoBackend.inventarios)) {
       return productoBackend.inventarios;
     }
@@ -230,6 +234,8 @@ function CatalogPage() {
         productoBackend.proId ||
         productoBackend.pro_id ||
         index + 1,
+
+      inventarios,
 
       nombre:
         productoBackend.nombre ||

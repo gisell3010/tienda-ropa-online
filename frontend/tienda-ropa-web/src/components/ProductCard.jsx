@@ -1,4 +1,9 @@
+import { useState } from "react";
+import { useCart } from "../context/CartContext";
+
 function ProductCard({ product }) {
+  const { agregarProducto, mostrarNotificacion } = useCart();
+
   const obtenerTexto = (valor) => {
     if (valor === null || valor === undefined) return "";
 
@@ -7,12 +12,7 @@ function ProductCard({ product }) {
     }
 
     if (typeof valor === "object") {
-      return (
-        valor.nombre ||
-        valor.name ||
-        valor.descripcion ||
-        ""
-      );
+      return valor.nombre || valor.name || valor.descripcion || "";
     }
 
     return "";
@@ -35,6 +35,10 @@ function ProductCard({ product }) {
 
   const stock = Number(product.stock) || 0;
   const agotado = stock === 0;
+
+  const [tallaSeleccionada, setTallaSeleccionada] = useState("");
+  const [colorSeleccionado, setColorSeleccionado] = useState("");
+  const [cantidad, setCantidad] = useState(1);
 
   const precioCOP = new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -67,6 +71,54 @@ function ProductCard({ product }) {
     };
 
     return coloresHex[color] || "#d1d5db";
+  };
+
+  const aumentarCantidad = () => {
+    if (!agotado && cantidad < stock) {
+      setCantidad(cantidad + 1);
+    }
+  };
+
+  const disminuirCantidad = () => {
+    if (!agotado && cantidad > 1) {
+      setCantidad(cantidad - 1);
+    }
+  };
+
+  const manejarAgregarCarrito = () => {
+    if (agotado) {
+      mostrarNotificacion("Este producto está agotado.", "error");
+      return;
+    }
+
+    if (!tallaSeleccionada && !colorSeleccionado) {
+  mostrarNotificacion("Selecciona una talla y un color antes de agregar el producto.", "error");
+  return;
+}
+
+if (!tallaSeleccionada) {
+  mostrarNotificacion("Selecciona una talla antes de agregar el producto.", "error");
+  return;
+}
+
+if (!colorSeleccionado) {
+  mostrarNotificacion("Selecciona un color antes de agregar el producto.", "error");
+  return;
+}
+
+    const resultado = agregarProducto(
+      product,
+      tallaSeleccionada,
+      colorSeleccionado,
+      cantidad
+    );
+
+    if (resultado.ok) {
+      mostrarNotificacion("Producto agregado al carrito correctamente.", "success");
+      setCantidad(1);
+    } else {
+      mostrarNotificacion(resultado.mensaje, "error");
+    }
   };
 
   return (
@@ -112,9 +164,18 @@ function ProductCard({ product }) {
               <div className="chip-list">
                 {tallas.length > 0 ? (
                   tallas.map((talla) => (
-                    <span className="chip" key={talla} translate="no">
+                    <button
+                      type="button"
+                      className={`chip chip-button ${
+                        tallaSeleccionada === talla ? "chip-button--active" : ""
+                      }`}
+                      key={talla}
+                      translate="no"
+                      onClick={() => setTallaSeleccionada(talla)}
+                      disabled={agotado}
+                    >
                       {talla}
-                    </span>
+                    </button>
                   ))
                 ) : (
                   <span className="details-empty">Sin tallas</span>
@@ -128,13 +189,20 @@ function ProductCard({ product }) {
               <div className="color-list">
                 {colores.length > 0 ? (
                   colores.map((color) => (
-                    <span
+                    <button
+                      type="button"
                       key={color}
-                      className="color-dot"
+                      className={`color-dot color-dot-button ${
+                        colorSeleccionado === color
+                          ? "color-dot-button--active"
+                          : ""
+                      }`}
                       title={color}
                       data-color={color}
                       style={{ backgroundColor: obtenerColorHex(color) }}
-                    ></span>
+                      onClick={() => setColorSeleccionado(color)}
+                      disabled={agotado}
+                    ></button>
                   ))
                 ) : (
                   <span className="details-empty">Sin colores</span>
@@ -142,9 +210,46 @@ function ProductCard({ product }) {
               </div>
             </div>
 
-            <div className={agotado ? "stock-card stock-card--off" : "stock-card stock-card--on"}>
+            <div
+              className={
+                agotado
+                  ? "stock-card stock-card--off"
+                  : "stock-card stock-card--on"
+              }
+            >
               <span>Disponible:</span>
               <strong>{agotado ? "Sin stock" : `${stock} unidades`}</strong>
+            </div>
+
+            <div className="product-card__cart-actions">
+              <div className="product-card__quantity">
+                <button
+                  type="button"
+                  onClick={disminuirCantidad}
+                  disabled={agotado}
+                >
+                  -
+                </button>
+
+                <span>{cantidad}</span>
+
+                <button
+                  type="button"
+                  onClick={aumentarCantidad}
+                  disabled={agotado}
+                >
+                  +
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="product-card__add-button"
+                onClick={manejarAgregarCarrito}
+                disabled={agotado}
+              >
+                Agregar al carrito
+              </button>
             </div>
           </div>
         </div>

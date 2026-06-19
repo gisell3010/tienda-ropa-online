@@ -1,11 +1,11 @@
-const API_URL = "/api/productos";
+const API_BASE_URL = "/api";
 
 export async function obtenerProductos() {
-  const respuesta = await fetch(API_URL);
+  const respuesta = await fetch(`${API_BASE_URL}/productos`);
 
   if (!respuesta.ok) {
-    throw new Error("No se pudieron obtener los productos desde el backend");
+    throw new Error("No se pudo cargar el catálogo desde el backend.");
   }
 
-  return respuesta.json();
+  return await respuesta.json();
 }

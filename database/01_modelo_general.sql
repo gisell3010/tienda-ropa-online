@@ -131,6 +131,7 @@ CREATE TABLE productos (
     pro_id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     precio NUMERIC(10,2) NOT NULL CHECK (precio > 0),
+    imagen_url TEXT,
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     cat_id INT NOT NULL,
     est_id INT NOT NULL,

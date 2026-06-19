@@ -509,3 +509,161 @@ EXCEPTION
         RAISE EXCEPTION 'Error al realizar compra del carrito: %', SQLERRM;
 END;
 $$;
+
+-- =========================================================
+-- PROCEDIMIENTO: REGISTRAR PRODUCTO
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_producto(
+    p_nombre VARCHAR,
+    p_precio NUMERIC,
+    p_imagen_url TEXT,
+    p_cat_id INT,
+    p_est_id INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del producto es obligatorio';
+    END IF;
+
+    IF p_precio IS NULL OR p_precio <= 0 THEN
+        RAISE EXCEPTION 'El precio debe ser mayor que cero';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM categorias WHERE cat_id = p_cat_id) THEN
+        RAISE EXCEPTION 'No existe la categoría indicada';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM estilos WHERE est_id = p_est_id) THEN
+        RAISE EXCEPTION 'No existe el estilo indicado';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM productos
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND cat_id = p_cat_id
+          AND est_id = p_est_id
+    ) THEN
+        RAISE EXCEPTION 'El producto ya existe con esa categoría y estilo';
+    END IF;
+
+    INSERT INTO productos(nombre, precio, imagen_url, cat_id, est_id)
+    VALUES (
+        TRIM(p_nombre),
+        p_precio,
+        NULLIF(TRIM(p_imagen_url), ''),
+        p_cat_id,
+        p_est_id
+    );
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO: EDITAR PRODUCTO
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE editar_producto(
+    p_pro_id INT,
+    p_nombre VARCHAR,
+    p_precio NUMERIC,
+    p_imagen_url TEXT,
+    p_cat_id INT,
+    p_est_id INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
+        RAISE EXCEPTION 'No existe el producto indicado';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del producto es obligatorio';
+    END IF;
+
+    IF p_precio IS NULL OR p_precio <= 0 THEN
+        RAISE EXCEPTION 'El precio debe ser mayor que cero';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM categorias WHERE cat_id = p_cat_id) THEN
+        RAISE EXCEPTION 'No existe la categoría indicada';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM estilos WHERE est_id = p_est_id) THEN
+        RAISE EXCEPTION 'No existe el estilo indicado';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM productos
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND cat_id = p_cat_id
+          AND est_id = p_est_id
+          AND pro_id <> p_pro_id
+    ) THEN
+        RAISE EXCEPTION 'Ya existe otro producto con ese nombre, categoría y estilo';
+    END IF;
+
+    UPDATE productos
+    SET nombre = TRIM(p_nombre),
+        precio = p_precio,
+        imagen_url = NULLIF(TRIM(p_imagen_url), ''),
+        cat_id = p_cat_id,
+        est_id = p_est_id
+    WHERE pro_id = p_pro_id;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO: CAMBIAR ESTADO PRODUCTO
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_producto(
+    p_pro_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado del producto';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
+        RAISE EXCEPTION 'No existe el producto indicado';
+    END IF;
+
+    UPDATE productos
+    SET activo = p_activo
+    WHERE pro_id = p_pro_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTO: ACTUALIZAR INVENTARIO
+-- Reemplaza el stock exacto de un inventario existente
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE actualizar_inventario(
+    p_inv_id INT,
+    p_stock INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM inventarios WHERE inv_id = p_inv_id) THEN
+        RAISE EXCEPTION 'No existe el inventario indicado';
+    END IF;
+
+    PERFORM fn_validar_stock(p_stock);
+
+    UPDATE inventarios
+    SET stock = p_stock
+    WHERE inv_id = p_inv_id;
+END;
+$$; 

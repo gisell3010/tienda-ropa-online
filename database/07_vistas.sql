@@ -283,6 +283,7 @@ SELECT
     p.correo,
     p.genero,
     p.fecha_nacimiento,
+    p.activo,
     r.nombre AS rol
 FROM personas p
 INNER JOIN roles r ON r.rol_id = p.rol_id;

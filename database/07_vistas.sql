@@ -25,6 +25,7 @@ SELECT
     p.pro_id,
     p.nombre AS producto,
     p.precio,
+    p.imagen_url,
     p.activo,
     c.nombre AS categoria,
     e.nombre AS estilo,
@@ -33,10 +34,7 @@ SELECT
     co.nombre AS color,
     i.stock,
     fn_estado_producto(i.stock) AS estado_producto,
-    CASE
-        WHEN i.stock <= 0 THEN FALSE
-        ELSE TRUE
-    END AS permite_interaccion
+    CASE WHEN i.stock <= 0 THEN FALSE ELSE TRUE END AS permite_interaccion
 FROM productos p
 INNER JOIN categorias c ON c.cat_id = p.cat_id
 INNER JOIN estilos e ON e.est_id = p.est_id
@@ -44,6 +42,7 @@ INNER JOIN inventarios i ON i.pro_id = p.pro_id
 INNER JOIN tallas t ON t.tal_id = i.tal_id
 INNER JOIN colores co ON co.col_id = i.col_id
 WHERE p.activo = TRUE;
+
 
 
 -- =========================================================
@@ -57,6 +56,7 @@ SELECT
     p.pro_id,
     p.nombre AS producto,
     p.precio,
+    p.imagen_url,
     p.activo,
     c.nombre AS categoria,
     e.nombre AS estilo,
@@ -70,10 +70,7 @@ SELECT
         'Sin colores disponibles'
     ) AS colores_disponibles,
     fn_estado_producto(COALESCE(SUM(i.stock), 0)::INT) AS estado_producto,
-    CASE
-        WHEN COALESCE(SUM(i.stock), 0) <= 0 THEN FALSE
-        ELSE TRUE
-    END AS permite_interaccion
+    CASE WHEN COALESCE(SUM(i.stock), 0) <= 0 THEN FALSE ELSE TRUE END AS permite_interaccion
 FROM productos p
 INNER JOIN categorias c ON c.cat_id = p.cat_id
 INNER JOIN estilos e ON e.est_id = p.est_id
@@ -85,6 +82,7 @@ GROUP BY
     p.pro_id,
     p.nombre,
     p.precio,
+    p.imagen_url,
     p.activo,
     c.nombre,
     e.nombre;
@@ -100,13 +98,15 @@ SELECT
     p.pro_id,
     p.nombre AS producto,
     p.precio,
+    p.imagen_url,
     p.activo,
+    p.cat_id,
     c.nombre AS categoria,
+    p.est_id,
     e.nombre AS estilo
 FROM productos p
 INNER JOIN categorias c ON c.cat_id = p.cat_id
 INNER JOIN estilos e ON e.est_id = p.est_id;
-
 
 -- =========================================================
 -- VISTA ADMINISTRATIVA: INVENTARIO
@@ -115,23 +115,28 @@ INNER JOIN estilos e ON e.est_id = p.est_id;
 
 CREATE OR REPLACE VIEW vw_admin_inventario AS
 SELECT
+    i.inv_id,
     p.pro_id,
     p.nombre AS producto,
     p.precio,
+    p.imagen_url,
     p.activo,
+    p.cat_id,
     c.nombre AS categoria,
+    p.est_id,
     e.nombre AS estilo,
-    i.inv_id,
+    i.tal_id,
     t.nombre AS talla,
+    i.col_id,
     co.nombre AS color,
     COALESCE(i.stock, 0) AS stock,
     fn_estado_producto(COALESCE(i.stock, 0)) AS estado_producto
-FROM productos p
+FROM inventarios i
+INNER JOIN productos p ON p.pro_id = i.pro_id
 INNER JOIN categorias c ON c.cat_id = p.cat_id
 INNER JOIN estilos e ON e.est_id = p.est_id
-LEFT JOIN inventarios i ON i.pro_id = p.pro_id
-LEFT JOIN tallas t ON t.tal_id = i.tal_id
-LEFT JOIN colores co ON co.col_id = i.col_id;
+INNER JOIN tallas t ON t.tal_id = i.tal_id
+INNER JOIN colores co ON co.col_id = i.col_id;
 
 
 -- =========================================================
@@ -168,25 +173,30 @@ GROUP BY
 -- VISTAS PARAMÉTRICAS
 -- =========================================================
 
-CREATE OR REPLACE VIEW vw_categorias AS
+CREATE OR REPLACE VIEW vw_param_categorias AS
 SELECT cat_id, nombre
-FROM categorias;
+FROM categorias
+ORDER BY nombre;
 
-CREATE OR REPLACE VIEW vw_estilos AS
+CREATE OR REPLACE VIEW vw_param_estilos AS
 SELECT est_id, nombre
-FROM estilos;
+FROM estilos
+ORDER BY nombre;
 
-CREATE OR REPLACE VIEW vw_tallas AS
+CREATE OR REPLACE VIEW vw_param_tallas AS
 SELECT tal_id, nombre
-FROM tallas;
+FROM tallas
+ORDER BY tal_id;
 
-CREATE OR REPLACE VIEW vw_colores AS
+CREATE OR REPLACE VIEW vw_param_colores AS
 SELECT col_id, nombre
-FROM colores;
+FROM colores
+ORDER BY nombre;
 
-CREATE OR REPLACE VIEW vw_metodos_pago AS
+CREATE OR REPLACE VIEW vw_param_metodos_pago AS
 SELECT met_id, nombre
-FROM metodos_pago;
+FROM metodos_pago
+ORDER BY nombre;
 
 
 -- =========================================================
@@ -198,7 +208,10 @@ SELECT
     v.ven_id,
     v.fecha,
     pe.nombre AS cliente,
+    p.pro_id,
     p.nombre AS producto,
+    p.imagen_url,
+    i.inv_id,
     t.nombre AS talla,
     co.nombre AS color,
     d.cantidad,
@@ -239,7 +252,10 @@ CREATE OR REPLACE VIEW vw_detalle_pedido_cliente AS
 SELECT
     v.ven_id,
     v.per_id,
+    p.pro_id,
     p.nombre AS producto,
+    p.imagen_url,
+    i.inv_id,
     t.nombre AS talla,
     co.nombre AS color,
     d.cantidad,
@@ -251,6 +267,8 @@ INNER JOIN inventarios i ON i.inv_id = d.inv_id
 INNER JOIN productos p ON p.pro_id = i.pro_id
 INNER JOIN tallas t ON t.tal_id = i.tal_id
 INNER JOIN colores co ON co.col_id = i.col_id;
+
+
 
 
 -- =========================================================
@@ -303,6 +321,7 @@ CREATE MATERIALIZED VIEW mv_resumen_ventas_productos AS
 SELECT
     p.pro_id,
     p.nombre AS producto,
+    p.imagen_url,
     COUNT(d.det_id) AS veces_vendido,
     COALESCE(SUM(d.cantidad), 0) AS unidades_vendidas,
     COALESCE(SUM(d.cantidad * d.precio_unitario), 0) AS total_generado
@@ -311,4 +330,5 @@ LEFT JOIN inventarios i ON i.pro_id = p.pro_id
 LEFT JOIN detalle_ventas d ON d.inv_id = i.inv_id
 GROUP BY
     p.pro_id,
-    p.nombre;
+    p.nombre,
+    p.imagen_url;

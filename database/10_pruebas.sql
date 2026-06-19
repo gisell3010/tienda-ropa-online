@@ -46,6 +46,7 @@ CALL registrar_usuario_admin(
 CALL registrar_producto(
     'Camiseta deportiva prueba',
     55000,
+    'https://ejemplo.com/camiseta-deportiva.jpg',
     (SELECT cat_id FROM categorias WHERE nombre = 'Superior'),
     (SELECT est_id FROM estilos WHERE nombre = 'Deportivo')
 );
@@ -53,9 +54,11 @@ CALL registrar_producto(
 CALL registrar_producto(
     'Jean clásico prueba',
     90000,
+    'https://ejemplo.com/jean-clasico.jpg',
     (SELECT cat_id FROM categorias WHERE nombre = 'Inferior'),
     (SELECT est_id FROM estilos WHERE nombre = 'Casual')
 );
+
 
 
 -- =========================================================
@@ -85,6 +88,7 @@ CALL editar_producto(
     (SELECT pro_id FROM productos WHERE nombre = 'Jean clásico prueba'),
     'Jean clásico prueba actualizado',
     95000,
+    'https://ejemplo.com/jean-clasico-actualizado.jpg',
     (SELECT cat_id FROM categorias WHERE nombre = 'Inferior'),
     (SELECT est_id FROM estilos WHERE nombre = 'Casual')
 );
@@ -177,6 +181,12 @@ SELECT * FROM vw_estilos;
 SELECT * FROM vw_tallas;
 SELECT * FROM vw_colores;
 SELECT * FROM vw_metodos_pago;
+
+SELECT * FROM vw_param_categorias;
+SELECT * FROM vw_param_estilos;
+SELECT * FROM vw_param_tallas;
+SELECT * FROM vw_param_colores;
+SELECT * FROM vw_param_metodos_pago;
 
 
 -- =========================================================

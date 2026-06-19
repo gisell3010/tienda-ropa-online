@@ -517,6 +517,7 @@ $$;
 CREATE OR REPLACE PROCEDURE registrar_producto(
     p_nombre VARCHAR,
     p_precio NUMERIC,
+    p_imagen_url TEXT,
     p_cat_id INT,
     p_est_id INT
 )
@@ -549,8 +550,14 @@ BEGIN
         RAISE EXCEPTION 'El producto ya existe con esa categoría y estilo';
     END IF;
 
-    INSERT INTO productos(nombre, precio, cat_id, est_id)
-    VALUES (TRIM(p_nombre), p_precio, p_cat_id, p_est_id);
+    INSERT INTO productos(nombre, precio, imagen_url, cat_id, est_id)
+    VALUES (
+        TRIM(p_nombre),
+        p_precio,
+        NULLIF(TRIM(p_imagen_url), ''),
+        p_cat_id,
+        p_est_id
+    );
 END;
 $$;
 
@@ -563,6 +570,7 @@ CREATE OR REPLACE PROCEDURE editar_producto(
     p_pro_id INT,
     p_nombre VARCHAR,
     p_precio NUMERIC,
+    p_imagen_url TEXT,
     p_cat_id INT,
     p_est_id INT
 )
@@ -603,6 +611,7 @@ BEGIN
     UPDATE productos
     SET nombre = TRIM(p_nombre),
         precio = p_precio,
+        imagen_url = NULLIF(TRIM(p_imagen_url), ''),
         cat_id = p_cat_id,
         est_id = p_est_id
     WHERE pro_id = p_pro_id;

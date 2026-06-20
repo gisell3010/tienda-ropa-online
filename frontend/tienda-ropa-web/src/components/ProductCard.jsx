@@ -42,13 +42,13 @@ function ProductCard({ product }) {
 
   const inventarioSeleccionado = product.inventarios?.find(
     (inventario) =>
-      inventario.talla === tallaSeleccionada &&
-      inventario.color === colorSeleccionado
+      obtenerTexto(inventario.talla) === tallaSeleccionada &&
+      obtenerTexto(inventario.color) === colorSeleccionado
   );
 
   const stockSeleccionado = inventarioSeleccionado
     ? Number(inventarioSeleccionado.stock)
-    : stock;
+    : 0;
 
   const precioCOP = new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -57,40 +57,85 @@ function ProductCard({ product }) {
   }).format(Number(product.precio) || 0);
 
   const obtenerColorHex = (color) => {
-    const coloresHex = {
-      Negro: "#111827",
-      Blanco: "#ffffff",
-      Gris: "#9ca3af",
-      Azul: "#1d4ed8",
-      Oliva: "#708238",
-      Verde: "#16a34a",
-      Rojo: "#dc2626",
-      Beige: "#d6b98c",
-      Amarillo: "#facc15",
-      Morado: "#7c3aed",
-      Rosado: "#f9a8d4",
-      Café: "#8b5e34",
-      Cafe: "#8b5e34",
-      Naranja: "#f97316",
-      Vinotinto: "#7f1d1d",
-      Fucsia: "#d946ef",
-      Lila: "#c084fc",
-      Crema: "#f5e6c8",
-      Mostaza: "#ca8a04",
-      Coral: "#fb7185"
-    };
+  const coloresHex = {
+    Negro: "#111827",
+    Blanco: "#ffffff",
+    Gris: "#9ca3af",
+    Azul: "#1d4ed8",
+    Oliva: "#708238",
+    Verde: "#16a34a",
+    Rojo: "#dc2626",
+    Beige: "#d6b98c",
+    Amarillo: "#facc15",
+    Morado: "#7c3aed",
+    Rosado: "#f9a8d4",
+    "Café": "#8b5e34",
+    "CafÃ©": "#8b5e34",
+    Cafe: "#8b5e34",
+    Naranja: "#f97316",
+    Vinotinto: "#7f1d1d",
+    Fucsia: "#d946ef",
+    Lila: "#c084fc",
+    Crema: "#f5e6c8",
+    Mostaza: "#ca8a04",
+    Coral: "#fb7185"
+  };
 
     return coloresHex[color] || "#d1d5db";
   };
 
+  const manejarSeleccionTalla = (talla) => {
+    setTallaSeleccionada(talla);
+    setCantidad(1);
+  };
+
+  const manejarSeleccionColor = (color) => {
+    setColorSeleccionado(color);
+    setCantidad(1);
+  };
+
   const aumentarCantidad = () => {
-    if (!agotado && cantidad < stockSeleccionado) {
+    if (agotado) {
+      mostrarNotificacion("Este producto está agotado.", "error");
+      return;
+    }
+
+    if (!tallaSeleccionada || !colorSeleccionado) {
+      mostrarNotificacion(
+        "Selecciona una talla y un color antes de aumentar la cantidad.",
+        "error"
+      );
+      return;
+    }
+
+    if (!inventarioSeleccionado) {
+      mostrarNotificacion(
+        "La talla y el color seleccionados no están disponibles para este producto.",
+        "error"
+      );
+      return;
+    }
+
+    if (stockSeleccionado <= 0) {
+      mostrarNotificacion(
+        "Este producto está agotado en la talla y color seleccionados.",
+        "error"
+      );
+      return;
+    }
+
+    if (cantidad < stockSeleccionado) {
       setCantidad(cantidad + 1);
+    } else {
+      mostrarNotificacion(
+        `Solo hay ${stockSeleccionado} unidad(es) disponibles para esta combinación.`,
+        "error"
+      );
     }
   };
 
   const disminuirCantidad = () => {
-    if (!agotado && cantidad > 1) {
+    if (cantidad > 1) {
       setCantidad(cantidad - 1);
     }
   };
@@ -102,23 +147,32 @@ function ProductCard({ product }) {
     }
 
     if (!tallaSeleccionada && !colorSeleccionado) {
-  mostrarNotificacion("Selecciona una talla y un color antes de agregar el producto.", "error");
-  return;
-}
+      mostrarNotificacion(
+        "Selecciona una talla y un color antes de agregar el producto.",
+        "error"
+      );
+      return;
+    }
 
-if (!tallaSeleccionada) {
-  mostrarNotificacion("Selecciona una talla antes de agregar el producto.", "error");
-  return;
-}
+    if (!tallaSeleccionada) {
+      mostrarNotificacion(
+        "Selecciona una talla antes de agregar el producto.",
+        "error"
+      );
+      return;
+    }
 
-if (!colorSeleccionado) {
-  mostrarNotificacion("Selecciona un color antes de agregar el producto.", "error");
-  return;
-}
+    if (!colorSeleccionado) {
+      mostrarNotificacion(
+        "Selecciona un color antes de agregar el producto.",
+        "error"
+      );
+      return;
+    }
 
     if (!inventarioSeleccionado) {
       mostrarNotificacion(
-        "La talla y el color seleccionados no están disponibles para este producto",
+        "La talla y el color seleccionados no están disponibles para este producto.",
         "error"
       );
       return;
@@ -126,7 +180,7 @@ if (!colorSeleccionado) {
 
     if (stockSeleccionado <= 0) {
       mostrarNotificacion(
-        "Este producto está agotado en la talla y color seleccionados",
+        "Este producto está agotado en la talla y color seleccionados.",
         "error"
       );
       return;
@@ -134,7 +188,7 @@ if (!colorSeleccionado) {
 
     if (cantidad > stockSeleccionado) {
       mostrarNotificacion(
-        `Actualmente solo contamos con ${stockSeleccionado} unidad(es) disponibles.`,
+        `Actualmente solo contamos con ${stockSeleccionado} unidad(es) disponibles para esta combinación.`,
         "error"
       );
       return;
@@ -206,7 +260,7 @@ if (!colorSeleccionado) {
                       }`}
                       key={talla}
                       translate="no"
-                      onClick={() => setTallaSeleccionada(talla)}
+                      onClick={() => manejarSeleccionTalla(talla)}
                       disabled={agotado}
                     >
                       {talla}
@@ -235,7 +289,7 @@ if (!colorSeleccionado) {
                       title={color}
                       data-color={color}
                       style={{ backgroundColor: obtenerColorHex(color) }}
-                      onClick={() => setColorSeleccionado(color)}
+                      onClick={() => manejarSeleccionColor(color)}
                       disabled={agotado}
                     ></button>
                   ))
@@ -253,13 +307,7 @@ if (!colorSeleccionado) {
               }
             >
               <span>Disponible:</span>
-              <strong>
-                {agotado
-                  ? "Sin stock"
-                  : tallaSeleccionada && colorSeleccionado
-                    ? `${stockSeleccionado} unidades`
-                    : `${stock} unidades`}
-              </strong>
+              <strong>{agotado ? "Sin stock" : `${stock} unidades`}</strong>
             </div>
 
             <div className="product-card__cart-actions">
@@ -267,7 +315,7 @@ if (!colorSeleccionado) {
                 <button
                   type="button"
                   onClick={disminuirCantidad}
-                  disabled={agotado}
+                  disabled={agotado || cantidad === 1}
                 >
                   -
                 </button>

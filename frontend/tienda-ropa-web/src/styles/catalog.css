@@ -716,4 +716,10 @@
     transform: scale(1);
   }
 }
+
+.stock-card--neutral {
+  background: linear-gradient(135deg, #f8f6f2, #ffffff);
+  color: #444444;
+  border: 1px solid #eadfce;
+}
 }

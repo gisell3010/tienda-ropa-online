@@ -8,6 +8,9 @@ import com.tienda.backend.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import com.tienda.backend.dto.RolDTO;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -32,4 +35,10 @@ public class AuthController {
     public UsuarioPerfilDTO obtenerUsuarioAutenticado() {
         return authService.obtenerUsuarioAutenticado();
     }
+
+    @GetMapping("/roles")
+    public List<RolDTO> obtenerRoles() {
+        return authService.obtenerRoles();
+    }
+    
 }

@@ -3,16 +3,32 @@ import Navbar from "./components/Navbar";
 import CatalogPage from "./pages/CatalogPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 import { useCart } from "./context/CartContext";
+import { useAuth } from "./context/AuthContext";
 
 import "./styles/global.css";
 import "./styles/catalog.css";
 import "./styles/cart.css";
 import "./styles/checkout.css";
+import "./styles/auth.css";
+import "./styles/admin.css";
 
 function App() {
-  const [vistaActual, setVistaActual] = useState("catalogo");
+  const [vistaActual, setVistaActual] = useState("login");
+
   const { notificacion } = useCart();
+  const { usuario, estaAutenticado, rolUsuario, cerrarSesion } = useAuth();
+
+  const irALogin = () => {
+    setVistaActual("login");
+  };
+
+  const irARegistro = () => {
+    setVistaActual("registro");
+  };
 
   const irACatalogo = () => {
     setVistaActual("catalogo");
@@ -24,6 +40,49 @@ function App() {
 
   const irACheckout = () => {
     setVistaActual("checkout");
+  };
+
+  const cerrarSesionUsuario = () => {
+    cerrarSesion();
+    setVistaActual("login");
+  };
+
+  const obtenerRol = (usuarioAutenticado) => {
+    return (
+      usuarioAutenticado?.rol ||
+      usuarioAutenticado?.rolAplicacion ||
+      usuarioAutenticado?.role ||
+      ""
+    ).toUpperCase();
+  };
+
+  const redirigirPorRol = (usuarioAutenticado) => {
+    const rol = obtenerRol(usuarioAutenticado);
+
+    if (rol === "CLIENTE") {
+      setVistaActual("catalogo");
+      return;
+    }
+
+    if (rol === "ADMIN") {
+      setVistaActual("admin");
+      return;
+    }
+
+    if (rol === "SUPERADMIN") {
+      setVistaActual("superadmin");
+      return;
+    }
+
+    setVistaActual("login");
+  };
+
+  const usuarioPuedeEntrar = (rolesPermitidos) => {
+    if (!estaAutenticado) {
+      return false;
+    }
+
+    return rolesPermitidos.includes(rolUsuario.toUpperCase());
   };
 
   const esError = notificacion.tipo === "error";
@@ -93,9 +152,41 @@ function App() {
     color: "#374151"
   };
 
+  if (vistaActual === "login") {
+    return (
+      <>
+        <LoginPage irARegistro={irARegistro} redirigirPorRol={redirigirPorRol} />
+      </>
+    );
+  }
+
+  if (vistaActual === "registro") {
+    return (
+      <>
+        <RegisterPage irALogin={irALogin} />
+      </>
+    );
+  }
+
+  if (!estaAutenticado) {
+    return (
+      <LoginPage irARegistro={irARegistro} redirigirPorRol={redirigirPorRol} />
+    );
+  }
+
   return (
     <>
-      <Navbar irACatalogo={irACatalogo} irACarrito={irACarrito} />
+      {["catalogo", "carrito", "checkout"].includes(vistaActual) &&
+  usuarioPuedeEntrar(["CLIENTE"]) && (
+    <Navbar
+      irACatalogo={irACatalogo}
+      irACarrito={irACarrito}
+      irALogin={irALogin}
+      cerrarSesionUsuario={cerrarSesionUsuario}
+      usuario={usuario}
+      rolUsuario={rolUsuario}
+    />
+  )}
 
       {notificacion.mensaje && (
         <div style={estiloOverlay}>
@@ -113,14 +204,58 @@ function App() {
         </div>
       )}
 
-      {vistaActual === "catalogo" && <CatalogPage />}
+      {vistaActual === "catalogo" && usuarioPuedeEntrar(["CLIENTE"]) && (
+        <CatalogPage />
+      )}
 
-      {vistaActual === "carrito" && (
+      {vistaActual === "carrito" && usuarioPuedeEntrar(["CLIENTE"]) && (
         <CartPage irACatalogo={irACatalogo} irACheckout={irACheckout} />
       )}
 
-      {vistaActual === "checkout" && (
+      {vistaActual === "checkout" && usuarioPuedeEntrar(["CLIENTE"]) && (
         <CheckoutPage irACarrito={irACarrito} irACatalogo={irACatalogo} />
+      )}
+
+      {vistaActual === "admin" && usuarioPuedeEntrar(["ADMIN"]) && (
+  <AdminDashboardPage
+    usuario={usuario}
+    cerrarSesionUsuario={cerrarSesionUsuario}
+  />
+)}
+
+      {vistaActual === "superadmin" && usuarioPuedeEntrar(["SUPERADMIN"]) && (
+        <main className="auth-page">
+          <section className="auth-card auth-card--wide">
+            <div className="auth-card__header">
+              <span className="auth-card__label">Panel superadministrador</span>
+              <h1>Bienvenido, superadministrador</h1>
+              <p>
+                Desde esta sección se gestionarán usuarios, roles, auditorías y
+                reportes generales.
+              </p>
+            </div>
+
+            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
+              Cerrar sesión
+            </button>
+          </section>
+        </main>
+      )}
+
+      {vistaActual === "catalogo" && !usuarioPuedeEntrar(["CLIENTE"]) && (
+        <main className="auth-page">
+          <section className="auth-card">
+            <div className="auth-card__header">
+              <span className="auth-card__label">Acceso no permitido</span>
+              <h1>No tienes permiso</h1>
+              <p>No puedes acceder a esta pantalla con tu rol actual.</p>
+            </div>
+
+            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
+              Volver al login
+            </button>
+          </section>
+        </main>
       )}
     </>
   );

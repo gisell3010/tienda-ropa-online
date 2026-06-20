@@ -66,6 +66,9 @@ function CartPage({ irACatalogo, irACheckout }) {
                   <span>
                     Color: <strong>{item.color}</strong>
                   </span>
+                  <span>
+                    Stock disponible: <strong>{item.stockDisponible}</strong>
+                  </span>
                 </div>
 
                 <p className="cart-item__price">
@@ -83,8 +86,15 @@ function CartPage({ irACatalogo, irACheckout }) {
               <div className="cart-item__actions">
                 <div className="quantity-control">
                   <button onClick={() => disminuirCantidad(item.itemId)}>-</button>
+
                   <span>{item.cantidad}</span>
-                  <button onClick={() => aumentarCantidad(item.itemId)}>+</button>
+
+                  <button
+                    onClick={() => aumentarCantidad(item.itemId)}
+                    disabled={item.cantidad >= item.stockDisponible}
+                  >
+                    +
+                  </button>
                 </div>
 
                 <p className="cart-item__subtotal">

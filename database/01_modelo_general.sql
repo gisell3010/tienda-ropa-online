@@ -95,6 +95,7 @@ CREATE TABLE personas (
     contrasena_hash VARCHAR(255) NOT NULL,
     genero CHAR(1) NOT NULL CHECK (genero IN ('M', 'F', 'O')),
     fecha_nacimiento DATE NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
     rol_id INT NOT NULL,
     FOREIGN KEY (rol_id) REFERENCES roles(rol_id)
 );

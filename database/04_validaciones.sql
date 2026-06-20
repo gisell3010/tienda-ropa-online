@@ -199,7 +199,30 @@ EXCEPTION
 END;
 $$;
 
+-- =========================================================
+-- PROCEDIMIENTO: ACTIVAR/DESACTIVAR USUSARIO
+-- 
+-- =========================================================
+CREATE OR REPLACE PROCEDURE cambiar_estado_persona(
+    p_per_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado de la persona';
+    END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM personas WHERE per_id = p_per_id) THEN
+        RAISE EXCEPTION 'No existe la persona indicada';
+    END IF;
+
+    UPDATE personas
+    SET activo = p_activo
+    WHERE per_id = p_per_id;
+END;
+$$;
 
 
 -- =========================================================

@@ -152,6 +152,9 @@ GRANT EXECUTE ON PROCEDURE actualizar_inventario(
     INT
 ) TO rol_admin;
 
+GRANT EXECUTE ON PROCEDURE cambiar_estado_persona(INT, BOOLEAN)
+TO rol_superadmin;
+
 
 -- =========================================================
 -- PERMISOS SUPERADMIN

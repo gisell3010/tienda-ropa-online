@@ -5,6 +5,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 import { useCart } from "./context/CartContext";
 import { useAuth } from "./context/AuthContext";
 
@@ -13,6 +14,7 @@ import "./styles/catalog.css";
 import "./styles/cart.css";
 import "./styles/checkout.css";
 import "./styles/auth.css";
+import "./styles/admin.css";
 
 function App() {
   const [vistaActual, setVistaActual] = useState("login");
@@ -182,14 +184,17 @@ function App() {
 
   return (
     <>
-      <Navbar
-        irACatalogo={irACatalogo}
-        irACarrito={irACarrito}
-        irALogin={irALogin}
-        cerrarSesionUsuario={cerrarSesionUsuario}
-        usuario={usuario}
-        rolUsuario={rolUsuario}
-      />
+      {["catalogo", "carrito", "checkout"].includes(vistaActual) &&
+  usuarioPuedeEntrar(["CLIENTE"]) && (
+    <Navbar
+      irACatalogo={irACatalogo}
+      irACarrito={irACarrito}
+      irALogin={irALogin}
+      cerrarSesionUsuario={cerrarSesionUsuario}
+      usuario={usuario}
+      rolUsuario={rolUsuario}
+    />
+  )}
 
       {notificacion.mensaje && (
         <div style={estiloOverlay}>
@@ -220,23 +225,11 @@ function App() {
       )}
 
       {vistaActual === "admin" && usuarioPuedeEntrar(["ADMIN"]) && (
-        <main className="auth-page">
-          <section className="auth-card auth-card--wide">
-            <div className="auth-card__header">
-              <span className="auth-card__label">Panel administrativo</span>
-              <h1>Bienvenido, administrador</h1>
-              <p>
-                Desde esta sección se gestionarán productos, inventario,
-                pedidos, ventas y reportes.
-              </p>
-            </div>
-
-            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
-              Cerrar sesión
-            </button>
-          </section>
-        </main>
-      )}
+  <AdminDashboardPage
+    usuario={usuario}
+    cerrarSesionUsuario={cerrarSesionUsuario}
+  />
+)}
 
       {vistaActual === "superadmin" && usuarioPuedeEntrar(["SUPERADMIN"]) && (
         <main className="auth-page">

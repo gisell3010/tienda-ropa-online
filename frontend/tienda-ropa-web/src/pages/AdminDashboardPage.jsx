@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   listarProductosAdmin,
   obtenerResumenAdmin,
@@ -24,11 +24,7 @@ function AdminDashboardPage({ usuario, cerrarSesionUsuario }) {
   const [mensajePagos, setMensajePagos] = useState("");
   const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    cargarInformacionAdmin();
-  }, []);
-
-  const cargarInformacionAdmin = async () => {
+  const cargarInformacionAdmin = useCallback(async () => {
     try {
       setCargando(true);
 
@@ -49,7 +45,12 @@ function AdminDashboardPage({ usuario, cerrarSesionUsuario }) {
     } finally {
       setCargando(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarInformacionAdmin();
+  }, [cargarInformacionAdmin]);
 
   const formatearPrecio = (valor) => {
     return Number(valor || 0).toLocaleString("es-CO", {

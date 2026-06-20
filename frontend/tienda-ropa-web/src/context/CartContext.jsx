@@ -65,11 +65,41 @@ export function CartProvider({ children }) {
     }
 
     const itemId = `inv-${inventarioId}`;
-    
-    setCarrito((carritoActual) => {
-      const productoExistente = carritoActual.find((item) => item.itemId === itemId);
+    const stockDisponible = Number(inventario.stock) || 0;
 
-      if (productoExistente) {
+    if (stockDisponible <= 0) {
+      return {
+        ok: false,
+        mensaje: "No hay stock disponible para esta combinación."
+      };
+    }
+
+    if (cantidadNumerica > stockDisponible) {
+      return {
+        ok: false,
+        mensaje: `Solo hay ${stockDisponible} unidad(es) disponibles.`
+      };
+    }
+
+    const productoExistente = carrito.find((item) => item.itemId === itemId);
+
+    if (productoExistente) {
+      const nuevaCantidad = productoExistente.cantidad + cantidadNumerica;
+
+      if (nuevaCantidad > stockDisponible) {
+        return {
+          ok: false,
+          mensaje: `Solo hay ${stockDisponible} unidad(es) disponibles.`
+        };
+      }
+    }
+
+    setCarrito((carritoActual) => {
+      const productoExistenteActual = carritoActual.find(
+        (item) => item.itemId === itemId
+      );
+
+      if (productoExistenteActual) {
         return carritoActual.map((item) =>
           item.itemId === itemId
             ? {
@@ -82,18 +112,18 @@ export function CartProvider({ children }) {
       }
 
       const nuevoItem = {
-      itemId,
-      inventarioId,
-      productoId,
-      nombre: producto.nombre,
-      precio: Number(producto.precio) || 0,
-      imagen: producto.imagen,
-      talla,
-      color,
-      cantidad: cantidadNumerica,
-      stockDisponible: Number(inventario.stock) || 0,
-      subtotal: (Number(producto.precio) || 0) * cantidadNumerica
-    };
+        itemId,
+        inventarioId,
+        productoId,
+        nombre: producto.nombre,
+        precio: Number(producto.precio) || 0,
+        imagen: producto.imagen,
+        talla,
+        color,
+        cantidad: cantidadNumerica,
+        stockDisponible,
+        subtotal: (Number(producto.precio) || 0) * cantidadNumerica
+      };
 
       return [...carritoActual, nuevoItem];
     });
@@ -184,6 +214,7 @@ export function CartProvider({ children }) {
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCart() {
   const context = useContext(CartContext);
 

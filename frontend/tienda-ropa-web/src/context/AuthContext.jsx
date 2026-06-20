@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 import {
   iniciarSesionBackend,
   registrarClienteBackend
@@ -8,22 +8,39 @@ const AuthContext = createContext();
 
 const AUTH_STORAGE_KEY = "shopnmg_auth";
 
+const obtenerSesionInicial = () => {
+  const sesionGuardada = localStorage.getItem(AUTH_STORAGE_KEY);
+
+  if (!sesionGuardada) {
+    return {
+      usuario: null,
+      token: ""
+    };
+  }
+
+  try {
+    const datosSesion = JSON.parse(sesionGuardada);
+
+    return {
+      usuario: datosSesion.usuario || null,
+      token: datosSesion.token || ""
+    };
+  } catch {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+
+    return {
+      usuario: null,
+      token: ""
+    };
+  }
+};
+
 export function AuthProvider({ children }) {
-  const [usuario, setUsuario] = useState(null);
-  const [token, setToken] = useState("");
-  const [cargandoAuth, setCargandoAuth] = useState(true);
+  const sesionInicial = obtenerSesionInicial();
 
-  useEffect(() => {
-    const sesionGuardada = localStorage.getItem(AUTH_STORAGE_KEY);
-
-    if (sesionGuardada) {
-      const datosSesion = JSON.parse(sesionGuardada);
-      setUsuario(datosSesion.usuario || null);
-      setToken(datosSesion.token || "");
-    }
-
-    setCargandoAuth(false);
-  }, []);
+  const [usuario, setUsuario] = useState(sesionInicial.usuario);
+  const [token, setToken] = useState(sesionInicial.token);
+  const [cargandoAuth] = useState(false);
 
   const guardarSesion = (datosSesion) => {
     const usuarioAutenticado = datosSesion.usuario || datosSesion;
@@ -78,6 +95,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
 

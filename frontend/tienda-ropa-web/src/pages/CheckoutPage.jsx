@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import { validarStockCarrito } from "../services/productosService";
 import { finalizarCompra } from "../services/checkoutService";
 import "../styles/checkout.css";
@@ -13,6 +14,8 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     mostrarNotificacion,
     vaciarCarrito
   } = useCart();
+
+  const { usuario } = useAuth();
 
   const [formulario, setFormulario] = useState({
     nombreCompleto: "",
@@ -157,8 +160,23 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         return;
       }
 
+      const personaId =
+        usuario?.id ||
+        usuario?.perId ||
+        usuario?.per_id ||
+        usuario?.personaId;
+
+      if (!personaId) {
+        const mensaje =
+          "No se encontró el usuario autenticado para registrar la compra.";
+
+        setMensajeCheckout(mensaje);
+        mostrarNotificacion(mensaje, "error");
+        return;
+      }
+
       const datosCompra = {
-        personaId: 1,
+        personaId: Number(personaId),
         metodoPagoId: formulario.metodoPago === "tarjeta" ? 1 : 3,
         detalles: carrito.map((item) => ({
           inventarioId: item.inventarioId,

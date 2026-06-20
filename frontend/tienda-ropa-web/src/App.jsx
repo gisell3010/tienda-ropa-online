@@ -42,14 +42,6 @@ function App() {
     setVistaActual("checkout");
   };
 
-  const irAAdmin = () => {
-    setVistaActual("admin");
-  };
-
-  const irASuperadmin = () => {
-    setVistaActual("superadmin");
-  };
-
   const cerrarSesionUsuario = () => {
     cerrarSesion();
     setVistaActual("login");

@@ -1,6 +1,7 @@
 package com.tienda.backend.security;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,6 +24,12 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "No autenticado"))
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Acceso denegado"))
+                )
                 .authorizeHttpRequests(auth -> auth
 
                         // Endpoints públicos
@@ -30,16 +37,26 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
 
-                        // Endpoints del cliente
+                        // Endpoints para CLIENTE
                         .requestMatchers("/api/cliente/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/carrito/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/compras/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/pedidos/cliente/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/direcciones/**").hasRole("CLIENTE")
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").hasAnyRole("CLIENTE", "ADMIN", "SUPERADMIN")
 
-                        // Endpoints del administrador
+                        // Endpoints para ADMIN y SUPERADMIN
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers("/api/inventario/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers("/api/reportes/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers("/api/metodos-pago/**").hasAnyRole("ADMIN", "SUPERADMIN")
 
-                        // Endpoints del superadministrador
+                        // Endpoints exclusivos para SUPERADMIN
                         .requestMatchers("/api/superadmin/**").hasRole("SUPERADMIN")
+                        .requestMatchers("/api/usuarios/**").hasRole("SUPERADMIN")
+                        .requestMatchers("/api/auditorias/**").hasRole("SUPERADMIN")
 
-                        // Temporal mientras se terminan de integrar los módulos
+                        // Mientras se integra token real, el resto queda permitido temporalmente
                         .anyRequest().permitAll()
                 )
                 .formLogin(form -> form.disable())

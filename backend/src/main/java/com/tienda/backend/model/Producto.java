@@ -14,11 +14,17 @@ public class Producto {
     @Column(name = "nombre", nullable = false, length = 150)
     private String nombre;
 
-    @Column(name = "descripcion", columnDefinition = "TEXT")
     @Transient
     private String descripcion;
+
     @Column(name = "precio", nullable = false)
     private Double precio;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
+
+    @Column(name = "imagen_url")
+    private String imagenUrl;
 
     @ManyToOne
     @JoinColumn(name = "cat_id", nullable = false)
@@ -28,22 +34,67 @@ public class Producto {
     @JoinColumn(name = "est_id", nullable = false)
     private Estilo estilo;
 
-    // --- GETTERS Y SETTERS ---
-    public Integer getProId() { return proId; }
-    public void setProId(Integer proId) { this.proId = proId; }
+    public Integer getProId() {
+        return proId;
+    }
 
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public void setProId(Integer proId) {
+        this.proId = proId;
+    }
 
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public Double getPrecio() { return precio; }
-    public void setPrecio(Double precio) { this.precio = precio; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public Categoria getCategoria() { return categoria; }
-    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
+    public String getDescripcion() {
+        return descripcion;
+    }
 
-    public Estilo getEstilo() { return estilo; }
-    public void setEstilo(Estilo estilo) { this.estilo = estilo; }
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public Double getPrecio() {
+        return precio;
+    }
+
+    public void setPrecio(Double precio) {
+        this.precio = precio;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
+
+    public String getImagenUrl() {
+        return imagenUrl;
+    }
+
+    public void setImagenUrl(String imagenUrl) {
+        this.imagenUrl = imagenUrl;
+    }
+
+    public Categoria getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(Categoria categoria) {
+        this.categoria = categoria;
+    }
+
+    public Estilo getEstilo() {
+        return estilo;
+    }
+
+    public void setEstilo(Estilo estilo) {
+        this.estilo = estilo;
+    }
 }

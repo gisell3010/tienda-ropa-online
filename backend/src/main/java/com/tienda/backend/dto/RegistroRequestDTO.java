@@ -20,7 +20,10 @@ public class RegistroRequestDTO {
     @Size(min = 6, message = "La contraseña debe tener mínimo 6 caracteres")
     private String password;
 
+    @NotBlank(message = "El género es obligatorio")
     private String genero;
+
+    @NotBlank(message = "La fecha de nacimiento es obligatoria")
     private String fechaNacimiento;
 
     public String getNombre() {

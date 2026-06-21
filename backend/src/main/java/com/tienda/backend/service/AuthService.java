@@ -9,6 +9,7 @@ import com.tienda.backend.model.Persona;
 import com.tienda.backend.model.Rol;
 import com.tienda.backend.repository.PersonaRepository;
 import com.tienda.backend.repository.RolRepository;
+import com.tienda.backend.security.AuthTokenService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -23,35 +24,36 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final PersonaRepository personaRepository;
     private final RolRepository rolRepository;
+    private final AuthTokenService authTokenService;
 
     public AuthService(
             PasswordEncoder passwordEncoder,
             PersonaRepository personaRepository,
-            RolRepository rolRepository) {
-
+            RolRepository rolRepository,
+            AuthTokenService authTokenService
+    ) {
         this.passwordEncoder = passwordEncoder;
         this.personaRepository = personaRepository;
         this.rolRepository = rolRepository;
+        this.authTokenService = authTokenService;
     }
 
     public AuthResponseDTO registrarCliente(RegistroRequestDTO request) {
 
-        Optional<Persona> existente =
-                personaRepository.findByCorreo(request.getCorreo());
-
-        if (existente.isPresent()) {
+        if (personaRepository.existsByCorreoIgnoreCase(request.getCorreo())) {
             return new AuthResponseDTO(
                     null,
                     null,
                     request.getCorreo(),
                     null,
                     false,
-                    "El correo ya está registrado"
+                    false,
+                    "El correo ya está registrado",
+                    null
             );
         }
 
-        Optional<Rol> rolCliente =
-                rolRepository.findByNombre("CLIENTE");
+        Optional<Rol> rolCliente = rolRepository.findByNombreIgnoreCase("CLIENTE");
 
         if (rolCliente.isEmpty()) {
             return new AuthResponseDTO(
@@ -60,58 +62,69 @@ public class AuthService {
                     null,
                     null,
                     false,
-                    "No existe el rol CLIENTE"
+                    false,
+                    "No existe el rol CLIENTE",
+                    null
+            );
+        }
+
+        if (request.getGenero() == null || request.getGenero().isBlank()) {
+            return new AuthResponseDTO(
+                    null,
+                    null,
+                    request.getCorreo(),
+                    null,
+                    false,
+                    false,
+                    "El género es obligatorio",
+                    null
+            );
+        }
+
+        if (request.getFechaNacimiento() == null || request.getFechaNacimiento().isBlank()) {
+            return new AuthResponseDTO(
+                    null,
+                    null,
+                    request.getCorreo(),
+                    null,
+                    false,
+                    false,
+                    "La fecha de nacimiento es obligatoria",
+                    null
             );
         }
 
         Persona persona = new Persona();
 
-        persona.setNombre(request.getNombre());
-        persona.setTelefono(request.getTelefono());
-        persona.setCorreo(request.getCorreo());
-
-        persona.setContrasenaHash(
-                passwordEncoder.encode(request.getPassword())
-        );
-
-        if (request.getGenero() != null &&
-                !request.getGenero().isBlank()) {
-
-            persona.setGenero(
-                    request.getGenero().charAt(0)
-            );
-        }
-
-        if (request.getFechaNacimiento() != null &&
-                !request.getFechaNacimiento().isBlank()) {
-
-            persona.setFechaNacimiento(
-                    LocalDate.parse(request.getFechaNacimiento())
-            );
-        }
-
+        persona.setNombre(request.getNombre().trim());
+        persona.setTelefono(request.getTelefono().trim());
+        persona.setCorreo(request.getCorreo().trim().toLowerCase());
+        persona.setContrasenaHash(passwordEncoder.encode(request.getPassword()));
+        persona.setGenero(request.getGenero().trim().toUpperCase().charAt(0));
+        persona.setFechaNacimiento(LocalDate.parse(request.getFechaNacimiento()));
+        persona.setActivo(true);
         persona.setRol(rolCliente.get());
-
-        System.out.println("ENTRO AL METODO REGISTRAR CLIENTE");
 
         Persona guardada = personaRepository.save(persona);
 
-        System.out.println("ID GUARDADO: " + guardada.getPerId());
+        String token = authTokenService.generarToken(guardada);
 
         return new AuthResponseDTO(
                 guardada.getPerId().longValue(),
                 guardada.getNombre(),
                 guardada.getCorreo(),
                 guardada.getRol().getNombre(),
+                Boolean.TRUE.equals(guardada.getActivo()),
                 true,
-                "Cliente registrado correctamente"
+                "Cliente registrado correctamente",
+                token
         );
     }
 
     public AuthResponseDTO login(LoginRequestDTO request) {
 
         Optional<Persona> persona =
-                personaRepository.findByCorreo(request.getCorreo());
+                personaRepository.findByCorreoIgnoreCase(request.getCorreo().trim());
 
         if (persona.isEmpty()) {
             return new AuthResponseDTO(
@@ -120,11 +133,26 @@ public class AuthService {
                     request.getCorreo(),
                     null,
                     false,
-                    "Correo no registrado"
+                    false,
+                    "Correo no registrado",
+                    null
             );
         }
 
         Persona usuario = persona.get();
+
+        if (!Boolean.TRUE.equals(usuario.getActivo())) {
+            return new AuthResponseDTO(
+                    usuario.getPerId().longValue(),
+                    usuario.getNombre(),
+                    usuario.getCorreo(),
+                    usuario.getRol().getNombre(),
+                    false,
+                    false,
+                    "El usuario está inactivo",
+                    null
+            );
+        }
 
         boolean passwordCorrecta =
                 passwordEncoder.matches(
@@ -138,10 +166,14 @@ public class AuthService {
                     usuario.getNombre(),
                     usuario.getCorreo(),
                     usuario.getRol().getNombre(),
+                    true,
                     false,
-                    "Contraseña incorrecta"
+                    "Contraseña incorrecta",
+                    null
             );
         }
+
+        String token = authTokenService.generarToken(usuario);
 
         return new AuthResponseDTO(
                 usuario.getPerId().longValue(),
@@ -149,18 +181,27 @@ public class AuthService {
                 usuario.getCorreo(),
                 usuario.getRol().getNombre(),
                 true,
-                "Inicio de sesión exitoso"
+                true,
+                "Inicio de sesión exitoso",
+                token
         );
     }
 
-    public UsuarioPerfilDTO obtenerUsuarioAutenticado() {
+    public UsuarioPerfilDTO obtenerUsuarioAutenticado(String authorizationHeader) {
+
+        AuthTokenService.TokenData tokenData = authTokenService
+                .obtenerUsuarioDesdeHeader(authorizationHeader)
+                .orElseThrow(() -> new IllegalArgumentException("Token inválido o no enviado"));
+
+        Persona persona = personaRepository.findById(tokenData.getUsuarioId().intValue())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
         return new UsuarioPerfilDTO(
-                1L,
-                "Usuario de prueba",
-                "cliente.prueba@gmail.com",
-                "CLIENTE",
-                true
+                persona.getPerId().longValue(),
+                persona.getNombre(),
+                persona.getCorreo(),
+                persona.getRol().getNombre(),
+                Boolean.TRUE.equals(persona.getActivo())
         );
     }
 

@@ -13,26 +13,29 @@ public class Persona {
     @Column(name = "per_id")
     private Integer perId;
 
-    @Column(name = "nombre")
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
     @Column(name = "telefono")
     private String telefono;
 
-    @Column(name = "correo")
+    @Column(name = "correo", nullable = false, unique = true)
     private String correo;
 
-    @Column(name = "contrasena_hash")
+    @Column(name = "contrasena_hash", nullable = false)
     private String contrasenaHash;
 
-    @Column(name = "genero")
+    @Column(name = "genero", nullable = false)
     private Character genero;
 
-    @Column(name = "fecha_nacimiento")
+    @Column(name = "fecha_nacimiento", nullable = false)
     private LocalDate fechaNacimiento;
 
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
+
     @ManyToOne
-    @JoinColumn(name = "rol_id")
+    @JoinColumn(name = "rol_id", nullable = false)
     private Rol rol;
 
     public Integer getPerId() {
@@ -89,6 +92,14 @@ public class Persona {
 
     public void setFechaNacimiento(LocalDate fechaNacimiento) {
         this.fechaNacimiento = fechaNacimiento;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
     }
 
     public Rol getRol() {

@@ -24,7 +24,7 @@ public class ProductoService {
     }
 
     public List<ProductoDTO> obtenerCatalogo() {
-        List<Producto> productos = productoRepository.findAll();
+        List<Producto> productos = productoRepository.findByActivoTrue();
 
         return productos.stream()
                 .map(this::convertirADto)

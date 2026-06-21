@@ -6,6 +6,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
+
 @Repository
 public interface PersonaRepository extends JpaRepository<Persona, Integer> {
 
@@ -14,4 +18,16 @@ public interface PersonaRepository extends JpaRepository<Persona, Integer> {
     Optional<Persona> findByCorreoIgnoreCase(String correo);
 
     boolean existsByCorreoIgnoreCase(String correo);
+
+    @Modifying
+    @Transactional
+    @Query(
+            value = "CALL cambiar_estado_persona(:personaId, :activo)",
+            nativeQuery = true
+    )
+    void cambiarEstadoPersona(
+            Integer personaId,
+            Boolean activo
+    );
+
 }

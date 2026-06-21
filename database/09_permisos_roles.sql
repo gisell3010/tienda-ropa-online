@@ -39,11 +39,6 @@ GRANT SELECT ON
     vw_tallas,
     vw_colores,
     vw_metodos_pago,
-    vw_param_categorias,
-    vw_param_estilos,
-    vw_param_tallas,
-    vw_param_colores,
-    vw_param_metodos_pago,
     metodos_pago,
     departamentos,
     municipios
@@ -105,11 +100,6 @@ GRANT SELECT ON
     vw_tallas,
     vw_colores,
     vw_metodos_pago,
-    vw_param_categorias,
-    vw_param_estilos,
-    vw_param_tallas,
-    vw_param_colores,
-    vw_param_metodos_pago,
     mv_resumen_ventas_productos
 TO rol_admin;
 
@@ -151,6 +141,9 @@ GRANT EXECUTE ON PROCEDURE actualizar_inventario(
     INT,
     INT
 ) TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_persona(INT, BOOLEAN)
+TO rol_superadmin;
 
 
 -- =========================================================
@@ -196,11 +189,6 @@ GRANT SELECT ON
     vw_tallas,
     vw_colores,
     vw_metodos_pago,
-    vw_param_categorias,
-    vw_param_estilos,
-    vw_param_tallas,
-    vw_param_colores,
-    vw_param_metodos_pago,
     mv_resumen_ventas_productos
 TO rol_superadmin;
 

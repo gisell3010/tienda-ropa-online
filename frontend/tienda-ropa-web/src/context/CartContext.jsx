@@ -44,7 +44,7 @@ export function CartProvider({ children }) {
     }, 3000);
   };
 
-  const agregarProducto = (producto, talla, color, cantidad = 1) => {
+  const agregarProducto = (producto, talla, color, cantidad = 1, inventario = null) => {
     const cantidadNumerica = Number(cantidad);
 
     if (!producto || !talla || !color || cantidadNumerica <= 0) {
@@ -55,12 +55,51 @@ export function CartProvider({ children }) {
     }
 
     const productoId = producto.id || producto.proId || producto.pro_id;
-    const itemId = `${productoId}-${talla}-${color}`;
+    const inventarioId = inventario?.inventarioId;
+
+    if (!inventarioId) {
+      return {
+        ok: false,
+        mensaje: "La talla y el color seleccionados no están disponibles para este producto."
+      };
+    }
+
+    const itemId = `inv-${inventarioId}`;
+    const stockDisponible = Number(inventario.stock) || 0;
+
+    if (stockDisponible <= 0) {
+      return {
+        ok: false,
+        mensaje: "No hay stock disponible para esta combinación."
+      };
+    }
+
+    if (cantidadNumerica > stockDisponible) {
+      return {
+        ok: false,
+        mensaje: `Solo hay ${stockDisponible} unidad(es) disponibles.`
+      };
+    }
+
+    const productoExistente = carrito.find((item) => item.itemId === itemId);
+
+    if (productoExistente) {
+      const nuevaCantidad = productoExistente.cantidad + cantidadNumerica;
+
+      if (nuevaCantidad > stockDisponible) {
+        return {
+          ok: false,
+          mensaje: `Solo hay ${stockDisponible} unidad(es) disponibles.`
+        };
+      }
+    }
 
     setCarrito((carritoActual) => {
-      const productoExistente = carritoActual.find((item) => item.itemId === itemId);
+      const productoExistenteActual = carritoActual.find(
+        (item) => item.itemId === itemId
+      );
 
-      if (productoExistente) {
+      if (productoExistenteActual) {
         return carritoActual.map((item) =>
           item.itemId === itemId
             ? {
@@ -74,6 +113,7 @@ export function CartProvider({ children }) {
 
       const nuevoItem = {
         itemId,
+        inventarioId,
         productoId,
         nombre: producto.nombre,
         precio: Number(producto.precio) || 0,
@@ -81,7 +121,7 @@ export function CartProvider({ children }) {
         talla,
         color,
         cantidad: cantidadNumerica,
-        stockDisponible: Number(producto.stock) || 0,
+        stockDisponible,
         subtotal: (Number(producto.precio) || 0) * cantidadNumerica
       };
 
@@ -96,15 +136,23 @@ export function CartProvider({ children }) {
 
   const aumentarCantidad = (itemId) => {
     setCarrito((carritoActual) =>
-      carritoActual.map((item) =>
-        item.itemId === itemId
-          ? {
-              ...item,
-              cantidad: item.cantidad + 1,
-              subtotal: (item.cantidad + 1) * item.precio
-            }
-          : item
-      )
+      carritoActual.map((item) => {
+        if (item.itemId !== itemId) return item;
+
+        if (item.cantidad >= item.stockDisponible) {
+          mostrarNotificacion(
+            `Solo hay ${item.stockDisponible} unidades disponibles.`,
+            "error"
+          );
+          return item;
+        }
+
+        return {
+          ...item,
+          cantidad: item.cantidad + 1,
+          subtotal: (item.cantidad + 1) * item.precio
+        };
+      })
     );
   };
 
@@ -166,6 +214,7 @@ export function CartProvider({ children }) {
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCart() {
   const context = useContext(CartContext);
 

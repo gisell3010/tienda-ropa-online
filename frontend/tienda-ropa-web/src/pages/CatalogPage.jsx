@@ -111,6 +111,10 @@ function CatalogPage() {
   };
 
   const obtenerInventarios = (productoBackend) => {
+    if (Array.isArray(productoBackend.existencias)) {
+      return productoBackend.existencias;
+    }
+
     if (Array.isArray(productoBackend.inventarios)) {
       return productoBackend.inventarios;
     }
@@ -231,6 +235,8 @@ function CatalogPage() {
         productoBackend.pro_id ||
         index + 1,
 
+      inventarios,
+
       nombre:
         productoBackend.nombre ||
         productoBackend.proNombre ||
@@ -325,6 +331,7 @@ function CatalogPage() {
     }
 
     cargarProductos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

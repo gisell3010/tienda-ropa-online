@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import { validarStockCarrito } from "../services/productosService";
+import { finalizarCompra } from "../services/checkoutService";
 import "../styles/checkout.css";
 
 function CheckoutPage({ irACarrito, irACatalogo }) {
@@ -12,6 +14,8 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     mostrarNotificacion,
     vaciarCarrito
   } = useCart();
+
+  const { usuario, token } = useAuth();
 
   const [formulario, setFormulario] = useState({
     nombreCompleto: "",
@@ -135,6 +139,19 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     try {
       setProcesandoCompra(true);
 
+      const productosSinInventario = carrito.filter(
+        (item) => !item.inventarioId
+      );
+
+      if (productosSinInventario.length > 0) {
+        const mensaje =
+          "Hay productos en el carrito sin inventario asociado. Vuelve al catálogo y agrégalos nuevamente.";
+
+        setMensajeCheckout(mensaje);
+        mostrarNotificacion(mensaje, "error");
+        return;
+      }
+
       const validacionStock = await validarStockCarrito(carrito);
 
       if (!validacionStock.ok) {
@@ -143,28 +160,60 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         return;
       }
 
-      const ordenGenerada = `ORD-${Date.now().toString().slice(-6)}`;
+      const personaId =
+        usuario?.id ||
+        usuario?.perId ||
+        usuario?.per_id ||
+        usuario?.personaId;
+
+      if (!personaId) {
+        const mensaje =
+          "No se encontró el usuario autenticado para registrar la compra.";
+
+        setMensajeCheckout(mensaje);
+        mostrarNotificacion(mensaje, "error");
+        return;
+      }
+
+      const datosCompra = {
+        personaId: Number(personaId),
+        metodoPagoId: formulario.metodoPago === "tarjeta" ? 1 : 3,
+        detalles: carrito.map((item) => ({
+          inventarioId: item.inventarioId,
+          cantidad: item.cantidad
+        }))
+      };
+
+      const respuestaCompra = await finalizarCompra(datosCompra, token);
+
+      const ordenGenerada =
+        respuestaCompra?.ventaId ||
+        respuestaCompra?.venId ||
+        respuestaCompra?.ven_id;
+
+      if (!ordenGenerada) {
+        throw new Error(
+          respuestaCompra?.mensaje ||
+            "La compra se procesó, pero el backend no devolvió el número de venta."
+        );
+      }
 
       setNumeroOrden(ordenGenerada);
 
       setMensajeCheckout(
-  `¡Gracias por tu compra! Tu pedido ha sido procesado con éxito. Número de orden: ${ordenGenerada}. Pronto enviaremos los detalles de la entrega a tu correo electrónico.`
-);
-
-setCompraFinalizada(true);
-mostrarNotificacion("Compra procesada correctamente.", "success");
-vaciarCarrito();
+        `¡Gracias por tu compra! Tu pedido ha sido registrado con éxito. Número de orden: ${ordenGenerada}.`
+      );
 
       setCompraFinalizada(true);
-      mostrarNotificacion("Compra validada correctamente con el backend.", "success");
+      mostrarNotificacion("Compra registrada correctamente.", "success");
       vaciarCarrito();
     } catch (error) {
       setMensajeCheckout(
-        error.message || "No se pudo conectar con el backend para validar el stock."
+        error.message || "No se pudo registrar la compra en el backend."
       );
 
       mostrarNotificacion(
-        error.message || "No se pudo conectar con el backend para validar el stock.",
+        error.message || "No se pudo registrar la compra en el backend.",
         "error"
       );
     } finally {
@@ -488,7 +537,7 @@ vaciarCarrito();
               className="checkout-actions__pay"
               disabled={procesandoCompra}
             >
-              {procesandoCompra ? "Validando stock..." : "Pagar ahora"}
+              {procesandoCompra ? "Procesando compra..." : "Pagar ahora"}
             </button>
           </div>
         </form>

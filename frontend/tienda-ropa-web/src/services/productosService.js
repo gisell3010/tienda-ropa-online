@@ -29,8 +29,7 @@ export async function validarStockCarrito(carrito) {
 
     const existenciaSeleccionada = existencias.find(
       (existencia) =>
-        existencia.talla === item.talla &&
-        existencia.color === item.color
+        Number(existencia.inventarioId) === Number(item.inventarioId)
     );
 
     if (!existenciaSeleccionada) {

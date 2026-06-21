@@ -3,7 +3,7 @@ package com.tienda.backend.dto;
 import java.util.List;
 
 public class CompraRequestDTO {
-    private Integer personaId; // Se solicita temporalmente ya que no hay login en Sprint 2
+    private Integer personaId;
     private Integer metodoPagoId;
     private List<CompraDetalleDTO> detalles;
 

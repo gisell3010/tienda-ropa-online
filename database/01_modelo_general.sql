@@ -1,12 +1,8 @@
--- SCRIPT COMPLETO – BASE TIENDA
--- =========================================
--- CREAR BASE DE DATOS
--- =========================================
-
-CREATE DATABASE tienda_ropa_online;
-
--- Conectarse a la base
-\c tienda_ropa_online
+-- =========================================================
+-- SCRIPT 01 - MODELO GENERAL
+-- Proyecto: Tienda de ropa online
+-- Ejecutar conectado a la base tienda_ropa_online
+-- =========================================================
 
 -- =========================================
 -- TABLA ROLES
@@ -23,7 +19,7 @@ CREATE TABLE roles (
 
 CREATE TABLE departamentos (
     dep_id CHAR(2) PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE
+    nombre VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- =========================================
@@ -32,7 +28,7 @@ CREATE TABLE departamentos (
 
 CREATE TABLE municipios (
     mun_id CHAR(5) PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
     dep_id CHAR(2) NOT NULL,
     CONSTRAINT uq_municipio_departamento UNIQUE (nombre, dep_id),
     FOREIGN KEY (dep_id) REFERENCES departamentos(dep_id)
@@ -95,6 +91,7 @@ CREATE TABLE personas (
     contrasena_hash VARCHAR(255) NOT NULL,
     genero CHAR(1) NOT NULL CHECK (genero IN ('M', 'F', 'O')),
     fecha_nacimiento DATE NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
     rol_id INT NOT NULL,
     FOREIGN KEY (rol_id) REFERENCES roles(rol_id)
 );

@@ -6,20 +6,6 @@
 BEGIN;
 
 -- =========================================================
--- DATOS DE PRUEBA: CLIENTE, ADMIN Y SUPERADMIN
--- =========================================================
-
-CALL registrar_cliente(
-    'Cliente Prueba',
-    '3124567890',
-    'cliente.prueba@gmail.com',
-    'hash_cliente_123',
-    'M',
-    '2000-05-10'
-);
-
-
--- =========================================================
 -- DATOS DE PRUEBA: USUARIOS, PRODUCTOS, INVENTARIO Y VENTAS
 -- =========================================================
 
@@ -240,12 +226,6 @@ SELECT * FROM vw_estilos;
 SELECT * FROM vw_tallas;
 SELECT * FROM vw_colores;
 SELECT * FROM vw_metodos_pago;
-
-SELECT * FROM vw_param_categorias;
-SELECT * FROM vw_param_estilos;
-SELECT * FROM vw_param_tallas;
-SELECT * FROM vw_param_colores;
-SELECT * FROM vw_param_metodos_pago;
 
 -- =========================================================
 -- REFRESCAR Y CONSULTAR VISTA MATERIALIZADA

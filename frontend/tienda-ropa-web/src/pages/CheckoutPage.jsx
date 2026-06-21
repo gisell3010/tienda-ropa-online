@@ -15,7 +15,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     vaciarCarrito
   } = useCart();
 
-  const { usuario } = useAuth();
+  const { usuario, token } = useAuth();
 
   const [formulario, setFormulario] = useState({
     nombreCompleto: "",
@@ -184,7 +184,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         }))
       };
 
-      const respuestaCompra = await finalizarCompra(datosCompra);
+      const respuestaCompra = await finalizarCompra(datosCompra, token);
 
       const ordenGenerada =
         respuestaCompra?.ventaId ||

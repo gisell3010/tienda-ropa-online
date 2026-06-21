@@ -9,6 +9,8 @@ function RegisterPage({ irALogin }) {
     nombre: "",
     telefono: "",
     correo: "",
+    genero: "",
+    fechaNacimiento: "",
     password: "",
     confirmarPassword: ""
   });
@@ -37,6 +39,14 @@ function RegisterPage({ irALogin }) {
 
     if (!formulario.correo.trim()) {
       return "Ingresa tu correo electrónico.";
+    }
+
+    if (!formulario.genero.trim()) {
+      return "Selecciona tu género.";
+    }
+
+    if (!formulario.fechaNacimiento.trim()) {
+      return "Ingresa tu fecha de nacimiento.";
     }
 
     if (!formulario.password.trim()) {
@@ -70,11 +80,12 @@ function RegisterPage({ irALogin }) {
       setMensaje("");
 
       const respuesta = await registrarCliente({
-        nombre: formulario.nombre,
-        telefono: formulario.telefono,
-        correo: formulario.correo,
-        password: formulario.password,
-        rol: "CLIENTE"
+        nombre: formulario.nombre.trim(),
+        telefono: formulario.telefono.trim(),
+        correo: formulario.correo.trim().toLowerCase(),
+        genero: formulario.genero,
+        fechaNacimiento: formulario.fechaNacimiento,
+        password: formulario.password
       });
 
       setMensaje(respuesta.mensaje || "Registro realizado correctamente.");
@@ -84,9 +95,15 @@ function RegisterPage({ irALogin }) {
         nombre: "",
         telefono: "",
         correo: "",
+        genero: "",
+        fechaNacimiento: "",
         password: "",
         confirmarPassword: ""
       });
+
+      setTimeout(() => {
+        irALogin();
+      }, 1200);
     } catch (error) {
       setMensaje(error.message || "No fue posible registrar el cliente.");
       setTipoMensaje("error");
@@ -135,6 +152,30 @@ function RegisterPage({ irALogin }) {
               value={formulario.correo}
               onChange={actualizarCampo}
               placeholder="correo@ejemplo.com"
+            />
+          </label>
+
+          <label>
+            Género
+            <select
+              name="genero"
+              value={formulario.genero}
+              onChange={actualizarCampo}
+            >
+              <option value="">Selecciona</option>
+              <option value="F">Femenino</option>
+              <option value="M">Masculino</option>
+              <option value="O">Otro</option>
+            </select>
+          </label>
+
+          <label>
+            Fecha de nacimiento
+            <input
+              type="date"
+              name="fechaNacimiento"
+              value={formulario.fechaNacimiento}
+              onChange={actualizarCampo}
             />
           </label>
 

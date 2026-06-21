@@ -58,7 +58,7 @@ function LoginPage({ irARegistro, redirigirPorRol }) {
       setMensaje(respuesta.mensaje || "Inicio de sesión exitoso.");
       setTipoMensaje("success");
 
-      redirigirPorRol(respuesta.usuario);
+      redirigirPorRol(respuesta.usuario || respuesta);
     } catch (error) {
       setMensaje(error.message || "No fue posible iniciar sesión.");
       setTipoMensaje("error");
@@ -115,13 +115,6 @@ function LoginPage({ irARegistro, redirigirPorRol }) {
           <button type="button" onClick={irARegistro}>
             Crear cuenta
           </button>
-        </div>
-
-        <div className="auth-test">
-          <p>Usuarios temporales de prueba:</p>
-          <span>cliente@shopnmg.com / 123456</span>
-          <span>admin@shopnmg.com / 123456</span>
-          <span>superadmin@shopnmg.com / 123456</span>
         </div>
       </section>
     </main>

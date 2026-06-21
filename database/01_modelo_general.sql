@@ -1,12 +1,8 @@
--- SCRIPT COMPLETO – BASE TIENDA
--- =========================================
--- CREAR BASE DE DATOS
--- =========================================
-
-CREATE DATABASE tienda_ropa_online;
-
--- Conectarse a la base
-\c tienda_ropa_online
+-- =========================================================
+-- SCRIPT 01 - MODELO GENERAL
+-- Proyecto: Tienda de ropa online
+-- Ejecutar conectado a la base tienda_ropa_online
+-- =========================================================
 
 -- =========================================
 -- TABLA ROLES

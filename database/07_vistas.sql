@@ -147,6 +147,7 @@ INNER JOIN colores co ON co.col_id = i.col_id;
 CREATE OR REPLACE VIEW vw_resumen_ventas AS
 SELECT
     v.ven_id,
+    p.per_id,
     p.nombre AS cliente,
     r.nombre AS rol,
     v.fecha,
@@ -162,42 +163,51 @@ LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
 LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id
 GROUP BY
     v.ven_id,
+    p.per_id,
     p.nombre,
     r.nombre,
     v.fecha,
     mp.nombre,
     pa.monto;
 
-
 -- =========================================================
 -- VISTAS PARAMÉTRICAS
 -- =========================================================
 
-CREATE OR REPLACE VIEW vw_param_categorias AS
-SELECT cat_id, nombre
+CREATE OR REPLACE VIEW vw_categorias AS
+SELECT
+    cat_id AS id,
+    nombre
 FROM categorias
 ORDER BY nombre;
 
-CREATE OR REPLACE VIEW vw_param_estilos AS
-SELECT est_id, nombre
+CREATE OR REPLACE VIEW vw_estilos AS
+SELECT
+    est_id AS id,
+    nombre
 FROM estilos
 ORDER BY nombre;
 
-CREATE OR REPLACE VIEW vw_param_tallas AS
-SELECT tal_id, nombre
+CREATE OR REPLACE VIEW vw_tallas AS
+SELECT
+    tal_id AS id,
+    nombre
 FROM tallas
 ORDER BY tal_id;
 
-CREATE OR REPLACE VIEW vw_param_colores AS
-SELECT col_id, nombre
+CREATE OR REPLACE VIEW vw_colores AS
+SELECT
+    col_id AS id,
+    nombre
 FROM colores
 ORDER BY nombre;
 
-CREATE OR REPLACE VIEW vw_param_metodos_pago AS
-SELECT met_id, nombre
+CREATE OR REPLACE VIEW vw_metodos_pago AS
+SELECT
+    met_id AS id,
+    nombre
 FROM metodos_pago
 ORDER BY nombre;
-
 
 -- =========================================================
 -- VISTA: DETALLE DE VENTAS PARA ADMIN
@@ -207,6 +217,7 @@ CREATE OR REPLACE VIEW vw_detalle_ventas_admin AS
 SELECT
     v.ven_id,
     v.fecha,
+    pe.per_id,
     pe.nombre AS cliente,
     p.pro_id,
     p.nombre AS producto,
@@ -216,14 +227,18 @@ SELECT
     co.nombre AS color,
     d.cantidad,
     d.precio_unitario,
-    d.cantidad * d.precio_unitario AS subtotal
+    d.cantidad * d.precio_unitario AS subtotal,
+    COALESCE(mp.nombre, 'Sin método de pago') AS metodo_pago,
+    COALESCE(pa.monto, 0) AS monto_pagado
 FROM detalle_ventas d
 INNER JOIN ventas v ON v.ven_id = d.ven_id
 INNER JOIN personas pe ON pe.per_id = v.per_id
 INNER JOIN inventarios i ON i.inv_id = d.inv_id
 INNER JOIN productos p ON p.pro_id = i.pro_id
 INNER JOIN tallas t ON t.tal_id = i.tal_id
-INNER JOIN colores co ON co.col_id = i.col_id;
+INNER JOIN colores co ON co.col_id = i.col_id
+LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
+LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id;
 
 
 -- =========================================================
@@ -237,11 +252,20 @@ SELECT
     pe.nombre AS cliente,
     v.fecha,
     COALESCE(mp.nombre, 'Sin método de pago') AS metodo_pago,
+    COALESCE(SUM(d.cantidad * d.precio_unitario), 0) AS total_venta,
     COALESCE(pa.monto, 0) AS total_pagado
 FROM ventas v
 INNER JOIN personas pe ON pe.per_id = v.per_id
+LEFT JOIN detalle_ventas d ON d.ven_id = v.ven_id
 LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
-LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id;
+LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id
+GROUP BY
+    v.ven_id,
+    v.per_id,
+    pe.nombre,
+    v.fecha,
+    mp.nombre,
+    pa.monto;
 
 
 -- =========================================================
@@ -251,6 +275,7 @@ LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id;
 CREATE OR REPLACE VIEW vw_detalle_pedido_cliente AS
 SELECT
     v.ven_id,
+    v.fecha,
     v.per_id,
     p.pro_id,
     p.nombre AS producto,
@@ -315,8 +340,6 @@ FROM aud_pagos;
 -- =========================================================
 -- VISTA MATERIALIZADA: RESUMEN DE VENTAS POR PRODUCTO
 -- =========================================================
-
-DROP MATERIALIZED VIEW IF EXISTS mv_resumen_ventas_productos;
 
 CREATE MATERIALIZED VIEW mv_resumen_ventas_productos AS
 SELECT

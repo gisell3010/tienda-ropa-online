@@ -1,10 +1,11 @@
 const API_BASE_URL = "/api";
 
-export async function finalizarCompra(datosCompra) {
+export async function finalizarCompra(datosCompra, token) {
   const respuesta = await fetch(`${API_BASE_URL}/compras`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(datosCompra)
   });

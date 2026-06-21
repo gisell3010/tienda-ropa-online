@@ -23,7 +23,7 @@ CREATE TABLE roles (
 
 CREATE TABLE departamentos (
     dep_id CHAR(2) PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE
+    nombre VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- =========================================
@@ -32,7 +32,7 @@ CREATE TABLE departamentos (
 
 CREATE TABLE municipios (
     mun_id CHAR(5) PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
     dep_id CHAR(2) NOT NULL,
     CONSTRAINT uq_municipio_departamento UNIQUE (nombre, dep_id),
     FOREIGN KEY (dep_id) REFERENCES departamentos(dep_id)

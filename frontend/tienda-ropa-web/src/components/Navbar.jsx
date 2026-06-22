@@ -1,6 +1,6 @@
 import { useCart } from "../context/CartContext";
 
-function Navbar({ irACatalogo, irACarrito }) {
+function Navbar({ irACatalogo, irACarrito, cerrarSesionUsuario, usuario, rolUsuario }) {
   const { cantidadTotalProductos } = useCart();
 
   return (
@@ -21,10 +21,29 @@ function Navbar({ irACatalogo, irACarrito }) {
             <span className="navbar__cart-count">{cantidadTotalProductos}</span>
           )}
         </button>
+
+        {usuario && (
+          <div className="navbar__session">
+            <span className="navbar__session-name">
+              {usuario.nombre || usuario.correo}
+            </span>
+
+            <span className="navbar__session-role">
+              {rolUsuario}
+            </span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="navbar__logout-button"
+          onClick={cerrarSesionUsuario}
+        >
+          Cerrar sesión
+        </button>
       </nav>
     </header>
   );
 }
 
 export default Navbar;
-

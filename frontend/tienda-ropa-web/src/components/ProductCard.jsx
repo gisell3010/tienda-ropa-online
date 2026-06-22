@@ -62,6 +62,7 @@ function ProductCard({ product }) {
     Blanco: "#ffffff",
     Gris: "#9ca3af",
     Azul: "#1d4ed8",
+    Celeste: "#7dd3fc",
     Oliva: "#708238",
     Verde: "#16a34a",
     Rojo: "#dc2626",
@@ -216,13 +217,7 @@ function ProductCard({ product }) {
         <img
           src={product.imagen}
           alt={product.nombre}
-          className="product-card__image product-card__image--main"
-        />
-
-        <img
-          src={product.imagenHover || product.imagen}
-          alt={`${product.nombre} vista secundaria`}
-          className="product-card__image product-card__image--hover"
+          className="product-card__image"
         />
 
         <span className="product-card__style">
@@ -307,7 +302,15 @@ function ProductCard({ product }) {
               }
             >
               <span>Disponible:</span>
-              <strong>{agotado ? "Sin stock" : `${stock} unidades`}</strong>
+              <strong>
+                {agotado
+                  ? "Sin stock"
+                  : tallaSeleccionada && colorSeleccionado
+                    ? inventarioSeleccionado
+                      ? `${stockSeleccionado} unidades`
+                      : "No disponible"
+                    : `${stock} unidades en total`}
+              </strong>
             </div>
 
             <div className="product-card__cart-actions">

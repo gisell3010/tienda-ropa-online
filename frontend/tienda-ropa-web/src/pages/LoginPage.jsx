@@ -68,54 +68,75 @@ function LoginPage({ irARegistro, redirigirPorRol }) {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
-        <div className="auth-card__header">
-          <span className="auth-card__label">ShopNMG</span>
-          <h1>Iniciar sesión</h1>
-          <p>Accede a tu cuenta para continuar en la tienda.</p>
-        </div>
+    <main
+      className="auth-page auth-page--login"
+      style={{
+        "--auth-bg-image": "url('/auth/fondo-auth.jpg')",
+        "--auth-panel-image": "url('/auth/login-panel.jpg')"
+      }}
+    >
+      <section className="auth-shell">
+        <aside className="auth-visual">
+          <div className="auth-visual__image"></div>
 
-        <form className="auth-form" onSubmit={manejarSubmit}>
-          <label>
-            Correo electrónico
-            <input
-              type="email"
-              name="correo"
-              value={formulario.correo}
-              onChange={actualizarCampo}
-              placeholder="correo@ejemplo.com"
-            />
-          </label>
+          <div className="auth-visual__content">
+            <span>ShopNMG</span>
+            <h2>Moda para cada estilo</h2>
+            <p>
+              Descubre nuevas prendas, compra sin complicaciones y gestiona tus pedidos
+              desde un solo lugar
+            </p>
+          </div>
+        </aside>
 
-          <label>
-            Contraseña
-            <input
-              type="password"
-              name="password"
-              value={formulario.password}
-              onChange={actualizarCampo}
-              placeholder="Ingresa tu contraseña"
-            />
-          </label>
+        <section className="auth-card">
+          <div className="auth-card__header">
+            <span className="auth-card__label">Bienvenida</span>
+            <h1>Iniciar sesión</h1>
+            <p>Accede a tu cuenta para continuar en la tienda.</p>
+          </div>
 
-          {mensaje && (
-            <div className={`auth-message auth-message--${tipoMensaje}`}>
-              {mensaje}
-            </div>
-          )}
+          <form className="auth-form" onSubmit={manejarSubmit}>
+            <label>
+              Correo electrónico
+              <input
+                type="email"
+                name="correo"
+                value={formulario.correo}
+                onChange={actualizarCampo}
+                placeholder="correo@ejemplo.com"
+              />
+            </label>
 
-          <button type="submit" disabled={cargando}>
-            {cargando ? "Ingresando..." : "Iniciar sesión"}
-          </button>
-        </form>
+            <label>
+              Contraseña
+              <input
+                type="password"
+                name="password"
+                value={formulario.password}
+                onChange={actualizarCampo}
+                placeholder="Ingresa tu contraseña"
+              />
+            </label>
 
-        <div className="auth-card__footer">
-          <p>¿No tienes cuenta?</p>
-          <button type="button" onClick={irARegistro}>
-            Crear cuenta
-          </button>
-        </div>
+            {mensaje && (
+              <div className={`auth-message auth-message--${tipoMensaje}`}>
+                {mensaje}
+              </div>
+            )}
+
+            <button type="submit" disabled={cargando}>
+              {cargando ? "Ingresando..." : "Iniciar sesión"}
+            </button>
+          </form>
+
+          <div className="auth-card__footer">
+            <p>¿Primera vez en ShopNMG?</p>
+            <button type="button" onClick={irARegistro}>
+              Crear cuenta
+            </button>
+          </div>
+        </section>
       </section>
     </main>
   );

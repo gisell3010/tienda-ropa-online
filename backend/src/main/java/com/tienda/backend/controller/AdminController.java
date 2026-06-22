@@ -183,4 +183,48 @@ public class AdminController {
                 )
         );
     }
+
+    @GetMapping("/categorias")
+        public ResponseEntity<?> categorias() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Categorías obtenidas correctamente",
+                        service.categorias()
+                )
+        );
+        }
+
+        @GetMapping("/estilos")
+        public ResponseEntity<?> estilos() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Estilos obtenidos correctamente",
+                        service.estilos()
+                )
+        );
+        }
+
+        @GetMapping("/tallas")
+        public ResponseEntity<?> tallas() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Tallas obtenidas correctamente",
+                        service.tallas()
+                )
+        );
+        }
+
+        @GetMapping("/colores")
+        public ResponseEntity<?> colores() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Colores obtenidos correctamente",
+                        service.colores()
+                )
+        );
+        }
 }

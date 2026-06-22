@@ -127,5 +127,20 @@ public void actualizarInventario(
         );
     }
 
+    public List<Map<String, Object>> categorias() {
+        return repository.obtenerCategorias();
+    }
+
+    public List<Map<String, Object>> estilos() {
+        return repository.obtenerEstilos();
+    }
+
+    public List<Map<String, Object>> tallas() {
+        return repository.obtenerTallas();
+    }
+
+    public List<Map<String, Object>> colores() {
+        return repository.obtenerColores();
+    }
     
 }

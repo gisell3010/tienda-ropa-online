@@ -1,5 +1,5 @@
 -- =========================================================
--- SCRIPT 08 - PERMISOS DIRECTOS EN BASE DE DATOS
+-- SCRIPT 09 - PERMISOS DIRECTOS EN BASE DE DATOS
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 
@@ -23,6 +23,8 @@ BEGIN
 END;
 $$;
 
+-- El superadministrador hereda permisos operativos del administrador
+GRANT rol_admin TO rol_superadmin;
 
 -- =========================================================
 -- PERMISOS CLIENTE
@@ -142,10 +144,6 @@ GRANT EXECUTE ON PROCEDURE actualizar_inventario(
     INT
 ) TO rol_admin;
 
-GRANT EXECUTE ON PROCEDURE cambiar_estado_persona(INT, BOOLEAN)
-TO rol_superadmin;
-
-
 -- =========================================================
 -- PERMISOS SUPERADMIN
 -- Supervisa, audita y controla roles
@@ -196,6 +194,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     roles
 TO rol_superadmin;
 
+-- =========================================================
+-- PERMISOS DE PROCEDIMIENTOS PARA SUPERADMIN
+-- =========================================================
+
+GRANT EXECUTE ON PROCEDURE registrar_usuario_admin(
+    VARCHAR,
+    VARCHAR,
+    VARCHAR,
+    VARCHAR,
+    CHAR,
+    DATE,
+    INT
+) TO rol_superadmin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_persona(
+    INT,
+    BOOLEAN
+) TO rol_superadmin;
 
 -- =========================================================
 -- PERMISOS SOBRE SECUENCIAS

@@ -6,6 +6,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import SuperAdminDashboardPage from "./pages/SuperAdminDashboardPage";
 import { useCart } from "./context/CartContext";
 import { useAuth } from "./context/AuthContext";
 
@@ -224,22 +225,10 @@ function App() {
 )}
 
       {vistaActual === "superadmin" && usuarioPuedeEntrar(["SUPERADMIN"]) && (
-        <main className="auth-page">
-          <section className="auth-card auth-card--wide">
-            <div className="auth-card__header">
-              <span className="auth-card__label">Panel superadministrador</span>
-              <h1>Bienvenido, superadministrador</h1>
-              <p>
-                Desde esta sección se gestionarán usuarios, roles, auditorías y
-                reportes generales.
-              </p>
-            </div>
-
-            <button className="auth-panel-button" onClick={cerrarSesionUsuario}>
-              Cerrar sesión
-            </button>
-          </section>
-        </main>
+        <SuperAdminDashboardPage
+          usuario={usuario}
+          cerrarSesionUsuario={cerrarSesionUsuario}
+        />
       )}
 
       {vistaActual === "catalogo" && !usuarioPuedeEntrar(["CLIENTE"]) && (

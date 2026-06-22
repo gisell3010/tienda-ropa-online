@@ -6,9 +6,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.jdbc.core.simple.SimpleJdbcCall;
-import java.util.HashMap;
-
 @Repository
 public class AdminJdbcRepository {
 
@@ -20,131 +17,144 @@ public class AdminJdbcRepository {
 
     public List<Map<String, Object>> obtenerProductos() {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM vw_admin_productos"
+                "SELECT * FROM vw_admin_productos ORDER BY pro_id"
         );
     }
 
     public List<Map<String, Object>> obtenerInventario() {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM vw_admin_inventario"
+                "SELECT * FROM vw_admin_inventario ORDER BY producto, talla, color"
         );
     }
 
     public List<Map<String, Object>> obtenerResumenVentas() {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM vw_resumen_ventas"
+                "SELECT * FROM vw_resumen_ventas ORDER BY fecha DESC"
         );
     }
 
     public List<Map<String, Object>> obtenerVentas() {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM vw_detalle_ventas_admin"
+                "SELECT * FROM vw_detalle_ventas_admin ORDER BY fecha DESC"
         );
     }
 
     public List<Map<String, Object>> obtenerPedidos() {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM ventas"
+                "SELECT * FROM vw_pedidos_cliente ORDER BY fecha DESC"
         );
     }
 
     public List<Map<String, Object>> obtenerPagos() {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM pagos"
+                """
+                SELECT
+                    p.pag_id,
+                    p.ven_id,
+                    p.met_id,
+                    mp.nombre AS metodo_pago,
+                    p.monto
+                FROM pagos p
+                INNER JOIN metodos_pago mp ON mp.met_id = p.met_id
+                ORDER BY p.pag_id DESC
+                """
+        );
+    }
+
+    public void registrarProducto(
+            String nombre,
+            Double precio,
+            String imagenUrl,
+            Integer catId,
+            Integer estId
+    ) {
+        jdbcTemplate.update(
+                "CALL registrar_producto(?, CAST(? AS NUMERIC), ?, ?, ?)",
+                nombre,
+                precio,
+                imagenUrl,
+                catId,
+                estId
+        );
+    }
+
+    public void editarProducto(
+            Integer productoId,
+            String nombre,
+            Double precio,
+            String imagenUrl,
+            Integer catId,
+            Integer estId
+    ) {
+        jdbcTemplate.update(
+                "CALL editar_producto(?, ?, CAST(? AS NUMERIC), ?, ?, ?)",
+                productoId,
+                nombre,
+                precio,
+                imagenUrl,
+                catId,
+                estId
+        );
+    }
+
+    public void cambiarEstadoProducto(
+            Integer productoId,
+            Boolean activo
+    ) {
+        jdbcTemplate.update(
+                "CALL cambiar_estado_producto(?, ?)",
+                productoId,
+                activo
         );
     }
 
     public void registrarInventario(
-        Integer productoId,
-        Integer stock,
-        Integer tallaId,
-        Integer colorId) {
-
-    SimpleJdbcCall call = new SimpleJdbcCall(jdbcTemplate)
-            .withProcedureName("registrar_inventario");
-
-    Map<String, Object> params = new HashMap<>();
-
-    params.put("p_pro_id", productoId);
-    params.put("p_stock", stock);
-    params.put("p_tal_id", tallaId);
-    params.put("p_col_id", colorId);
-
-    call.execute(params);
-}
-
-public void actualizarInventario(
-            Integer inventarioId,
-        Integer stock) {
-
-        SimpleJdbcCall call = new SimpleJdbcCall(jdbcTemplate)
-            .withProcedureName("actualizar_inventario");
-
-        Map<String, Object> params = new HashMap<>();
-
-        params.put("p_inv_id", inventarioId);
-        params.put("p_stock", stock);
-
-        call.execute(params);
+            Integer productoId,
+            Integer stock,
+            Integer tallaId,
+            Integer colorId
+    ) {
+        jdbcTemplate.update(
+                "CALL registrar_inventario(?, ?, ?, ?)",
+                productoId,
+                stock,
+                tallaId,
+                colorId
+        );
     }
 
-    public void registrarProducto(
-        String nombre,
-        Double precio,
-        String imagenUrl,
-        Integer catId,
-        Integer estId) {
+    public void actualizarInventario(
+            Integer inventarioId,
+            Integer stock
+    ) {
+        jdbcTemplate.update(
+                "CALL actualizar_inventario(?, ?)",
+                inventarioId,
+                stock
+        );
+    }
 
-    SimpleJdbcCall call = new SimpleJdbcCall(jdbcTemplate)
-            .withProcedureName("registrar_producto");
+    public List<Map<String, Object>> obtenerCategorias() {
+        return jdbcTemplate.queryForList(
+                "SELECT * FROM vw_categorias ORDER BY nombre"
+        );
+    }
 
-    Map<String, Object> params = new HashMap<>();
+    public List<Map<String, Object>> obtenerEstilos() {
+        return jdbcTemplate.queryForList(
+                "SELECT * FROM vw_estilos ORDER BY nombre"
+        );
+    }
 
-    params.put("p_nombre", nombre);
-    params.put("p_precio", precio);
-    params.put("p_imagen_url", imagenUrl);
-    params.put("p_cat_id", catId);
-    params.put("p_est_id", estId);
+    public List<Map<String, Object>> obtenerTallas() {
+        return jdbcTemplate.queryForList(
+                "SELECT * FROM vw_tallas ORDER BY id"
+        );
+    }
 
-    call.execute(params);
-}
-
-public void editarProducto(
-        Integer productoId,
-        String nombre,
-        Double precio,
-        String imagenUrl,
-        Integer catId,
-        Integer estId) {
-
-    SimpleJdbcCall call = new SimpleJdbcCall(jdbcTemplate)
-            .withProcedureName("editar_producto");
-
-    Map<String, Object> params = new HashMap<>();
-
-        
-    params.put("p_pro_id", productoId);
-    params.put("p_nombre", nombre);
-    params.put("p_precio", precio);
-    params.put("p_imagen_url", imagenUrl);
-    params.put("p_cat_id", catId);
-    params.put("p_est_id", estId);
-
-    call.execute(params);
- }
-
-    public void cambiarEstadoProducto(
-            Integer productoId,
-            Boolean activo) {
-
-        SimpleJdbcCall call = new SimpleJdbcCall(jdbcTemplate)
-                .withProcedureName("cambiar_estado_producto");
-
-        Map<String, Object> params = new HashMap<>();
-
-        params.put("p_pro_id", productoId);
-        params.put("p_activo", activo);
-
-        call.execute(params);
+    public List<Map<String, Object>> obtenerColores() {
+        return jdbcTemplate.queryForList(
+                "SELECT * FROM vw_colores ORDER BY nombre"
+        );
     }
 }

@@ -58,9 +58,14 @@ GRANT EXECUTE ON PROCEDURE registrar_cliente(
 GRANT EXECUTE ON FUNCTION realizar_compra_carrito(
     INT,
     INT,
+    INT,
     JSONB
 ) TO rol_cliente;
 
+GRANT SELECT, INSERT ON
+    direcciones,
+    personas_direcciones
+TO rol_cliente;
 
 -- =========================================================
 -- PERMISOS ADMIN

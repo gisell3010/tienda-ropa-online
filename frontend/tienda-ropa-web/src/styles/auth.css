@@ -380,3 +380,70 @@
     font-size: 36px;
   }
 }
+
+.auth-back-button {
+  width: fit-content;
+  border: 1px solid #eadfce;
+  background: #fbf7ef;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  margin-bottom: 10px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 6px 14px rgba(17, 17, 17, 0.05);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.auth-back-button:hover {
+  background: #ffda59;
+  color: #111111;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(201, 166, 107, 0.18);
+}
+
+.auth-shell--register .auth-card {
+  justify-content: center;
+  padding-top: 34px;
+  padding-bottom: 34px;
+}
+
+.auth-shell--register .auth-card__header {
+  margin-bottom: 18px;
+}
+
+.auth-shell--register .auth-card__header h1 {
+  font-size: clamp(38px, 4vw, 56px);
+  margin-bottom: 10px;
+}
+
+.auth-shell--register .auth-card__header p {
+  font-size: 15px;
+}
+
+.auth-shell--register .auth-form--grid {
+  row-gap: 12px;
+}
+
+.auth-shell--register .auth-form label {
+  gap: 6px;
+}
+
+.auth-shell--register .auth-form input,
+.auth-shell--register .auth-form select {
+  padding: 13px 16px;
+  min-height: 52px;
+}
+
+.auth-shell--register .auth-form button {
+  margin-top: 2px;
+  padding: 15px 22px;
+}

@@ -135,6 +135,13 @@ function RegisterPage({ irALogin }) {
         </aside>
 
         <section className="auth-card auth-card--wide">
+          <button
+            type="button"
+            className="auth-back-button"
+            onClick={irALogin}
+          >
+            ← Volver
+          </button>
           <div className="auth-card__header">
             <span className="auth-card__label">ShopNMG</span>
             <h1>Crear cuenta</h1>

@@ -395,6 +395,7 @@ $$;
 CREATE OR REPLACE FUNCTION realizar_compra_carrito(
     p_per_id INT,
     p_met_id INT,
+    p_dir_id INT,
     p_items JSONB
 )
 RETURNS INT
@@ -441,6 +442,19 @@ BEGIN
         RAISE EXCEPTION 'No existe el método de pago indicado';
     END IF;
 
+    IF p_dir_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la dirección de entrega';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM personas_direcciones
+        WHERE per_id = p_per_id
+        AND dir_id = p_dir_id
+    ) THEN
+        RAISE EXCEPTION 'La dirección indicada no pertenece al cliente';
+    END IF;
+
     -- Validación centralizada de inventario, cantidad y stock.
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
@@ -479,8 +493,8 @@ BEGIN
     END LOOP;
 
     -- La base crea la venta.
-    INSERT INTO ventas(per_id)
-    VALUES (p_per_id)
+    INSERT INTO ventas(per_id, dir_id)
+    VALUES (p_per_id, p_dir_id)
     RETURNING ven_id INTO v_ven_id;
 
     -- La base crea detalles y descuenta stock.

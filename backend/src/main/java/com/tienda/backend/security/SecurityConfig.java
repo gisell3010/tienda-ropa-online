@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/roles").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/inventarios/validar").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/ubicaciones/**").permitAll()
 
                         // Endpoints para CLIENTE
                         .requestMatchers("/api/cliente/**").hasRole("CLIENTE")

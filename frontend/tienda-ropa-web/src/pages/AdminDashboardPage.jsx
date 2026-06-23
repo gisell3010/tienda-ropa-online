@@ -748,7 +748,7 @@ function AdminDashboardPage({ usuario, cerrarSesionUsuario }) {
                 <tr key={pago.pag_id || pago.pagId}>
                   <td>{pago.pag_id || pago.pagId}</td>
                   <td>{pago.ven_id || pago.venId}</td>
-                  <td>{pago.met_id || pago.metodo_pago || pago.metodoPago}</td>
+                  <td>{pago.metodo_pago || pago.metodoPago || pago.met_id}</td>
                   <td>{formatearPrecio(pago.monto)}</td>
                 </tr>
               ))}

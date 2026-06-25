@@ -1,7 +1,15 @@
+-- =========================================
+CREACIÓN DE BASE DE DATOS
+-- =========================================
+
+CREATE DATABASE tienda_ropa_online;
+
 -- =========================================================
 -- SCRIPT 01 - MODELO GENERAL
 -- Proyecto: Tienda de ropa online
 -- Ejecutar conectado a la base tienda_ropa_online
+-- En SQL Shell / psql se puede usar el siguiente comando:
+-- \c tienda_ropa_online
 -- =========================================================
 
 -- =========================================

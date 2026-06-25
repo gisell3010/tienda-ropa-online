@@ -164,10 +164,11 @@ CREATE TABLE inventarios (
 CREATE TABLE ventas (
     ven_id SERIAL PRIMARY KEY,
     per_id INT NOT NULL,
+    dir_id INT,
     fecha DATE NOT NULL DEFAULT CURRENT_DATE,
-    FOREIGN KEY (per_id) REFERENCES personas(per_id)
+    FOREIGN KEY (per_id) REFERENCES personas(per_id),
+    FOREIGN KEY (dir_id) REFERENCES direcciones(dir_id)
 );
-
 -- =========================================
 -- TABLA DETALLE_VENTAS
 -- =========================================

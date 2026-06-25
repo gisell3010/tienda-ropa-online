@@ -11,6 +11,7 @@ public class ProductoDTO {
     private String estilo;
     private List<InventarioDTO> existencias;
     private boolean agotado;
+    private String imagenUrl;
 
     public ProductoDTO() {}
 
@@ -76,5 +77,13 @@ public class ProductoDTO {
 
     public void setAgotado(boolean agotado) {
         this.agotado = agotado;
+    }
+
+    public String getImagenUrl() {
+        return imagenUrl;
+    }
+
+    public void setImagenUrl(String imagenUrl) {
+        this.imagenUrl = imagenUrl;
     }
 }

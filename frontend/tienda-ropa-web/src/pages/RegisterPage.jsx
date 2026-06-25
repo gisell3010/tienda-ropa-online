@@ -113,113 +113,134 @@ function RegisterPage({ irALogin }) {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-card auth-card--wide">
-        <div className="auth-card__header">
-          <span className="auth-card__label">ShopNMG</span>
-          <h1>Crear cuenta</h1>
-          <p>Regístrate como cliente para comprar y consultar tus pedidos.</p>
-        </div>
+    <main
+      className="auth-page auth-page--register"
+      style={{
+        "--auth-bg-image": "url('/auth/fondo-auth.jpg')",
+        "--auth-panel-image": "url('/auth/registro-panel.jpg')"
+      }}
+    >
+      <section className="auth-shell auth-shell--register">
+        <aside className="auth-visual">
+          <div className="auth-visual__image"></div>
 
-        <form className="auth-form auth-form--grid" onSubmit={manejarSubmit}>
-          <label>
-            Nombre completo
-            <input
-              type="text"
-              name="nombre"
-              value={formulario.nombre}
-              onChange={actualizarCampo}
-              placeholder="Ej: Laura Gómez"
-            />
-          </label>
+          <div className="auth-visual__content">
+            <span>Nueva cuenta</span>
+            <h2>Crea tu perfil y empieza a comprar.</h2>
+            <p>
+              Regístrate como cliente para agregar productos al carrito,
+              finalizar compras y consultar tus pedidos.
+            </p>
+          </div>
+        </aside>
 
-          <label>
-            Teléfono
-            <input
-              type="tel"
-              name="telefono"
-              value={formulario.telefono}
-              onChange={actualizarCampo}
-              placeholder="Ej: 3001234567"
-            />
-          </label>
-
-          <label className="auth-form__full">
-            Correo electrónico
-            <input
-              type="email"
-              name="correo"
-              value={formulario.correo}
-              onChange={actualizarCampo}
-              placeholder="correo@ejemplo.com"
-            />
-          </label>
-
-          <label>
-            Género
-            <select
-              name="genero"
-              value={formulario.genero}
-              onChange={actualizarCampo}
-            >
-              <option value="">Selecciona</option>
-              <option value="F">Femenino</option>
-              <option value="M">Masculino</option>
-              <option value="O">Otro</option>
-            </select>
-          </label>
-
-          <label>
-            Fecha de nacimiento
-            <input
-              type="date"
-              name="fechaNacimiento"
-              value={formulario.fechaNacimiento}
-              onChange={actualizarCampo}
-            />
-          </label>
-
-          <label>
-            Contraseña
-            <input
-              type="password"
-              name="password"
-              value={formulario.password}
-              onChange={actualizarCampo}
-              placeholder="Mínimo 6 caracteres"
-            />
-          </label>
-
-          <label>
-            Confirmar contraseña
-            <input
-              type="password"
-              name="confirmarPassword"
-              value={formulario.confirmarPassword}
-              onChange={actualizarCampo}
-              placeholder="Repite tu contraseña"
-            />
-          </label>
-
-          {mensaje && (
-            <div
-              className={`auth-message auth-message--${tipoMensaje} auth-form__full`}
-            >
-              {mensaje}
-            </div>
-          )}
-
-          <button type="submit" disabled={cargando} className="auth-form__full">
-            {cargando ? "Registrando..." : "Crear cuenta"}
+        <section className="auth-card auth-card--wide">
+          <button
+            type="button"
+            className="auth-back-button"
+            onClick={irALogin}
+          >
+            ← Volver
           </button>
-        </form>
+          <div className="auth-card__header">
+            <span className="auth-card__label">ShopNMG</span>
+            <h1>Crear cuenta</h1>
+            <p>Completa tus datos para registrarte como cliente.</p>
+          </div>
 
-        <div className="auth-card__footer">
-          <p>¿Ya tienes cuenta?</p>
-          <button type="button" onClick={irALogin}>
-            Iniciar sesión
-          </button>
-        </div>
+          <form className="auth-form auth-form--grid" onSubmit={manejarSubmit}>
+            <label>
+              Nombre completo
+              <input
+                type="text"
+                name="nombre"
+                value={formulario.nombre}
+                onChange={actualizarCampo}
+                placeholder="Ej: Laura Gómez"
+              />
+            </label>
+
+            <label>
+              Teléfono
+              <input
+                type="tel"
+                name="telefono"
+                value={formulario.telefono}
+                onChange={actualizarCampo}
+                placeholder="Ej: 3001234567"
+              />
+            </label>
+
+            <label className="auth-form__full">
+              Correo electrónico
+              <input
+                type="email"
+                name="correo"
+                value={formulario.correo}
+                onChange={actualizarCampo}
+                placeholder="correo@ejemplo.com"
+              />
+            </label>
+
+            <label>
+              Género
+              <select
+                name="genero"
+                value={formulario.genero}
+                onChange={actualizarCampo}
+              >
+                <option value="">Selecciona</option>
+                <option value="F">Femenino</option>
+                <option value="M">Masculino</option>
+                <option value="O">Otro</option>
+              </select>
+            </label>
+
+            <label>
+              Fecha de nacimiento
+              <input
+                type="date"
+                name="fechaNacimiento"
+                value={formulario.fechaNacimiento}
+                onChange={actualizarCampo}
+              />
+            </label>
+
+            <label>
+              Contraseña
+              <input
+                type="password"
+                name="password"
+                value={formulario.password}
+                onChange={actualizarCampo}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </label>
+
+            <label>
+              Confirmar contraseña
+              <input
+                type="password"
+                name="confirmarPassword"
+                value={formulario.confirmarPassword}
+                onChange={actualizarCampo}
+                placeholder="Repite tu contraseña"
+              />
+            </label>
+
+            {mensaje && (
+              <div
+                className={`auth-message auth-message--${tipoMensaje} auth-form__full`}
+              >
+                {mensaje}
+              </div>
+            )}
+
+            <button type="submit" disabled={cargando} className="auth-form__full">
+              {cargando ? "Registrando..." : "Crear cuenta"}
+            </button>
+          </form>
+        </section>
       </section>
     </main>
   );

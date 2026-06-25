@@ -38,6 +38,7 @@ public class ProductoService {
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
         dto.setPrecio(producto.getPrecio());
+        dto.setImagenUrl(producto.getImagenUrl());
         dto.setCategoria(producto.getCategoria().getNombre());
         dto.setEstilo(producto.getEstilo().getNombre());
 

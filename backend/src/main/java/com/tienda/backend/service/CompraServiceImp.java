@@ -33,6 +33,10 @@ public class CompraServiceImp implements CompraService {
             return new CompraResponseDTO(false, "Debe seleccionar un método de pago.", null);
         }
 
+        if (request.getDireccionId() == null) {
+            return new CompraResponseDTO(false, "Debe indicar la dirección de entrega.", null);
+        }
+
         if (request.getDetalles() == null || request.getDetalles().isEmpty()) {
             return new CompraResponseDTO(false, "Debe agregar al menos un producto a la compra.", null);
         }
@@ -67,12 +71,13 @@ public class CompraServiceImp implements CompraService {
             String jsonItems = mapper.writeValueAsString(itemsJson);
 
             Query query = entityManager.createNativeQuery(
-                    "SELECT realizar_compra_carrito(?1, ?2, CAST(?3 AS jsonb))"
+                    "SELECT realizar_compra_carrito(?1, ?2, ?3, CAST(?4 AS jsonb))"
             );
 
             query.setParameter(1, request.getPersonaId());
             query.setParameter(2, request.getMetodoPagoId());
-            query.setParameter(3, jsonItems);
+            query.setParameter(3, request.getDireccionId());
+            query.setParameter(4, jsonItems);
 
             Integer ventaId = ((Number) query.getSingleResult()).intValue();
 

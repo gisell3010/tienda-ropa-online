@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { validarStockCarrito } from "../services/productosService";
-import { finalizarCompra } from "../services/checkoutService";
+import {
+  finalizarCompra,
+  registrarDireccionCliente
+} from "../services/checkoutService";
+import {
+  listarDepartamentos,
+  listarMunicipios
+} from "../services/ubicacionService";
 import "../styles/checkout.css";
 
 function CheckoutPage({ irACarrito, irACatalogo }) {
@@ -20,8 +27,9 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
   const [formulario, setFormulario] = useState({
     nombreCompleto: "",
     correo: "",
+    departamentoId: "",
+    municipioId: "",
     direccion: "",
-    ciudad: "",
     telefono: "",
     metodoPago: "tarjeta",
     franquicia: "Visa",
@@ -39,6 +47,8 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
   const [procesandoCompra, setProcesandoCompra] = useState(false);
   const [compraFinalizada, setCompraFinalizada] = useState(false);
   const [numeroOrden, setNumeroOrden] = useState("");
+  const [departamentos, setDepartamentos] = useState([]);
+  const [municipios, setMunicipios] = useState([]);
 
   const formatoCOP = (valor) => {
     return new Intl.NumberFormat("es-CO", {
@@ -48,13 +58,46 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     }).format(valor);
   };
 
+  useEffect(() => {
+    async function cargarDepartamentos() {
+      const data = await listarDepartamentos();
+      setDepartamentos(data);
+    }
+
+    cargarDepartamentos();
+  }, []);
+
+  useEffect(() => {
+    async function cargarMunicipios() {
+      if (!formulario.departamentoId) {
+        setMunicipios([]);
+        return;
+      }
+
+      const data = await listarMunicipios(formulario.departamentoId);
+      setMunicipios(data);
+    }
+
+    cargarMunicipios();
+  }, [formulario.departamentoId]);
+
   const actualizarCampo = (evento) => {
     const { name, value } = evento.target;
 
-    setFormulario((datosActuales) => ({
-      ...datosActuales,
-      [name]: value
-    }));
+    setFormulario((datosActuales) => {
+      if (name === "departamentoId") {
+        return {
+          ...datosActuales,
+          departamentoId: value,
+          municipioId: ""
+        };
+      }
+
+      return {
+        ...datosActuales,
+        [name]: value
+      };
+    });
   };
 
   const validarDatosEnvio = () => {
@@ -66,12 +109,16 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
       return "Ingresa el correo electrónico.";
     }
 
-    if (!formulario.direccion.trim()) {
-      return "Ingresa la dirección de entrega.";
+    if (!formulario.departamentoId) {
+      return "Selecciona el departamento.";
     }
 
-    if (!formulario.ciudad.trim()) {
-      return "Ingresa la ciudad.";
+    if (!formulario.municipioId) {
+      return "Selecciona el municipio.";
+    }
+
+    if (!formulario.direccion.trim()) {
+      return "Ingresa la dirección de entrega.";
     }
 
     if (!formulario.telefono.trim()) {
@@ -175,8 +222,43 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         return;
       }
 
+      const departamentoSeleccionado = departamentos.find(
+        (departamento) => String(departamento.id) === String(formulario.departamentoId)
+      );
+
+      const municipioSeleccionado = municipios.find(
+        (municipio) => String(municipio.id) === String(formulario.municipioId)
+      );
+
+      if (!departamentoSeleccionado || !municipioSeleccionado) {
+        const mensaje = "Selecciona una dirección de entrega válida.";
+        setMensajeCheckout(mensaje);
+        mostrarNotificacion(mensaje, "error");
+        return;
+      }
+
+      const direccionRegistrada = await registrarDireccionCliente(
+        {
+          direccion: formulario.direccion.trim(),
+          departamento: departamentoSeleccionado.nombre,
+          municipio: municipioSeleccionado.nombre
+        },
+        token
+      );
+
+      const direccionId =
+        direccionRegistrada?.direccionId ||
+        direccionRegistrada?.dirId ||
+        direccionRegistrada?.dir_id ||
+        direccionRegistrada?.id;
+
+      if (!direccionId) {
+        throw new Error("No se pudo obtener la dirección registrada.");
+      }
+
       const datosCompra = {
         personaId: Number(personaId),
+        direccionId: Number(direccionId),
         metodoPagoId: formulario.metodoPago === "tarjeta" ? 1 : 3,
         detalles: carrito.map((item) => ({
           inventarioId: item.inventarioId,
@@ -344,19 +426,41 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
                   name="direccion"
                   value={formulario.direccion}
                   onChange={actualizarCampo}
-                  placeholder="Calle, carrera, número, barrio"
+                  placeholder="Ej: Carrera 20 No. 11-78"
                 />
               </label>
 
               <label>
-                Ciudad
-                <input
-                  type="text"
-                  name="ciudad"
-                  value={formulario.ciudad}
+                Departamento
+                <select
+                  name="departamentoId"
+                  value={formulario.departamentoId}
                   onChange={actualizarCampo}
-                  placeholder="Ej: Pamplona"
-                />
+                >
+                  <option value="">Selecciona un departamento</option>
+                  {departamentos.map((departamento) => (
+                    <option key={departamento.id} value={departamento.id}>
+                      {departamento.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Municipio
+                <select
+                  name="municipioId"
+                  value={formulario.municipioId}
+                  onChange={actualizarCampo}
+                  disabled={!formulario.departamentoId}
+                >
+                  <option value="">Selecciona un municipio</option>
+                  {municipios.map((municipio) => (
+                    <option key={municipio.id} value={municipio.id}>
+                      {municipio.nombre}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label>

@@ -31,3 +31,26 @@ export async function finalizarCompra(datosCompra, token) {
 
   return data;
 }
+
+export async function registrarDireccionCliente(direccion, token) {
+  const respuesta = await fetch(`${API_BASE_URL}/cliente/direcciones`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(direccion)
+  });
+
+  const data = await respuesta.json().catch(() => null);
+
+  if (!respuesta.ok) {
+    throw new Error(
+      data?.mensaje ||
+        data?.message ||
+        "No se pudo registrar la dirección de entrega."
+    );
+  }
+
+  return data;
+}

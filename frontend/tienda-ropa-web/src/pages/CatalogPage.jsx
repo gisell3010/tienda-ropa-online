@@ -297,14 +297,11 @@ function CatalogPage() {
             : imagenLocal.stock || 0,
 
       imagen:
+        productoBackend.imagenUrl ||
+        productoBackend.imagen_url ||
         productoBackend.imagen ||
         productoBackend.urlImagen ||
         imagenLocal.imagen,
-
-      imagenHover:
-        productoBackend.imagenHover ||
-        productoBackend.urlImagenHover ||
-        imagenLocal.imagenHover
     };
   };
 

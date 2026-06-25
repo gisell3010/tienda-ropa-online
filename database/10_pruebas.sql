@@ -162,6 +162,8 @@ DECLARE
     v_met_id INT;
     v_inv_c INT;
     v_inv_j INT;
+    v_mun_id CHAR(5);
+    v_dir_id INT;
 BEGIN
     SELECT per_id INTO v_per_id
     FROM personas
@@ -170,6 +172,26 @@ BEGIN
     SELECT met_id INTO v_met_id
     FROM metodos_pago
     WHERE nombre = 'PSE';
+
+    SELECT mun_id INTO v_mun_id
+    FROM municipios
+    WHERE nombre = 'PAMPLONA'
+      AND dep_id = '54'
+    LIMIT 1;
+
+    IF v_mun_id IS NULL THEN
+        SELECT mun_id INTO v_mun_id
+        FROM municipios
+        LIMIT 1;
+    END IF;
+
+    INSERT INTO direcciones (mun_id, linea)
+    VALUES (v_mun_id, 'Carrera 20 No. 11-78')
+    RETURNING dir_id INTO v_dir_id;
+
+    INSERT INTO personas_direcciones (per_id, dir_id)
+    VALUES (v_per_id, v_dir_id)
+    ON CONFLICT (per_id, dir_id) DO NOTHING;
 
     SELECT i.inv_id INTO v_inv_c
     FROM inventarios i
@@ -186,6 +208,7 @@ BEGIN
     PERFORM realizar_compra_carrito(
         v_per_id,
         v_met_id,
+        v_dir_id,
         jsonb_build_array(
             jsonb_build_object('inv_id', v_inv_c, 'cantidad', 2),
             jsonb_build_object('inv_id', v_inv_j, 'cantidad', 1)

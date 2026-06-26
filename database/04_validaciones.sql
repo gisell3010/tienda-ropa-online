@@ -103,9 +103,45 @@ BEGIN
 END;
 $$;
 
+-- =========================================================
+-- FUNCIÓN: TOTAL DE UNA VENTA
+-- Calcula el total de una venta desde detalle_ventas
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION fn_total_venta(
+    p_ven_id INT
+)
+RETURNS NUMERIC
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_total NUMERIC(10,2);
+BEGIN
+    IF p_ven_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la venta';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM ventas
+        WHERE ven_id = p_ven_id
+    ) THEN
+        RAISE EXCEPTION 'No existe la venta indicada';
+    END IF;
+
+    SELECT COALESCE(SUM(cantidad * precio_unitario), 0)
+    INTO v_total
+    FROM detalle_ventas
+    WHERE ven_id = p_ven_id;
+
+    RETURN v_total;
+END;
+$$;
+
 
 -- =========================================================
 -- PROCEDIMIENTO: REGISTRAR INVENTARIO
+-- Registra inventario validando producto, talla, color y stock
 -- =========================================================
 
 CREATE OR REPLACE PROCEDURE registrar_inventario(
@@ -116,6 +152,8 @@ CREATE OR REPLACE PROCEDURE registrar_inventario(
 )
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_stock_valido BOOLEAN;
 BEGIN
     IF p_pro_id IS NULL THEN
         RAISE EXCEPTION 'Debe indicar el producto';
@@ -129,45 +167,61 @@ BEGIN
         RAISE EXCEPTION 'Debe indicar el color';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
-        RAISE EXCEPTION 'No existe el producto indicado';
+    SELECT fn_validar_stock(p_stock)
+    INTO v_stock_valido;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM productos
+        WHERE pro_id = p_pro_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No existe el producto indicado o está inactivo';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM tallas WHERE tal_id = p_tal_id) THEN
-        RAISE EXCEPTION 'No existe la talla indicada';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM tallas
+        WHERE tal_id = p_tal_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No existe la talla indicada o está inactiva';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM colores WHERE col_id = p_col_id) THEN
-        RAISE EXCEPTION 'No existe el color indicado';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM colores
+        WHERE col_id = p_col_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No existe el color indicado o está inactivo';
     END IF;
-
-    PERFORM fn_validar_stock(p_stock);
 
     INSERT INTO inventarios (
         pro_id,
         stock,
         tal_id,
-        col_id
+        col_id,
+        activo
     )
     VALUES (
         p_pro_id,
         p_stock,
         p_tal_id,
-        p_col_id
+        p_col_id,
+        TRUE
     )
     ON CONFLICT (pro_id, tal_id, col_id)
     DO UPDATE SET
-        stock = inventarios.stock + EXCLUDED.stock;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al registrar inventario: %', SQLERRM;
+        stock = inventarios.stock + EXCLUDED.stock,
+        activo = TRUE;
 END;
 $$;
 
 
 -- =========================================================
 -- PROCEDIMIENTO: AUMENTAR STOCK
+-- Aumenta stock solo si el inventario está activo
 -- =========================================================
 
 CREATE OR REPLACE PROCEDURE aumentar_stock(
@@ -185,21 +239,20 @@ BEGIN
         RAISE EXCEPTION 'La cantidad a aumentar debe ser mayor que cero';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM inventarios WHERE inv_id = p_inv_id) THEN
-        RAISE EXCEPTION 'No existe el inventario indicado';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM inventarios
+        WHERE inv_id = p_inv_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No existe el inventario indicado o está inactivo';
     END IF;
 
     UPDATE inventarios
     SET stock = stock + p_cantidad
     WHERE inv_id = p_inv_id;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al aumentar stock: %', SQLERRM;
 END;
 $$;
-
-
 
 
 -- =========================================================
@@ -646,7 +699,7 @@ $$;
 
 -- =========================================================
 -- PROCEDIMIENTO: ACTUALIZAR INVENTARIO
--- Reemplaza el stock exacto de un inventario existente
+-- Reemplaza el stock exacto de un inventario activo
 -- =========================================================
 
 CREATE OR REPLACE PROCEDURE actualizar_inventario(
@@ -655,15 +708,618 @@ CREATE OR REPLACE PROCEDURE actualizar_inventario(
 )
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_stock_valido BOOLEAN;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM inventarios WHERE inv_id = p_inv_id) THEN
-        RAISE EXCEPTION 'No existe el inventario indicado';
+    IF p_inv_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el inventario';
     END IF;
 
-    PERFORM fn_validar_stock(p_stock);
+    SELECT fn_validar_stock(p_stock)
+    INTO v_stock_valido;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM inventarios
+        WHERE inv_id = p_inv_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No existe el inventario indicado o está inactivo';
+    END IF;
 
     UPDATE inventarios
     SET stock = p_stock
     WHERE inv_id = p_inv_id;
 END;
-$$; 
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTO: ACTIVAR O DESACTIVAR INVENTARIO
+-- No elimina inventario para conservar historial de ventas
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE eliminar_o_desactivar_inventario(
+    p_inv_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_inv_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el inventario';
+    END IF;
+
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar si el inventario queda activo o inactivo';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM inventarios
+        WHERE inv_id = p_inv_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el inventario indicado';
+    END IF;
+
+    UPDATE inventarios
+    SET activo = p_activo
+    WHERE inv_id = p_inv_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTOS ADMIN: CATEGORÍAS
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_categoria(
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre de la categoría es obligatorio';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM categorias
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+    ) THEN
+        RAISE EXCEPTION 'Ya existe una categoría con ese nombre';
+    END IF;
+
+    INSERT INTO categorias(nombre, activo)
+    VALUES (TRIM(p_nombre), TRUE);
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE editar_categoria(
+    p_cat_id INT,
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_cat_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la categoría';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre de la categoría es obligatorio';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM categorias
+        WHERE cat_id = p_cat_id
+    ) THEN
+        RAISE EXCEPTION 'No existe la categoría indicada';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM categorias
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND cat_id <> p_cat_id
+    ) THEN
+        RAISE EXCEPTION 'Ya existe otra categoría con ese nombre';
+    END IF;
+
+    UPDATE categorias
+    SET nombre = TRIM(p_nombre)
+    WHERE cat_id = p_cat_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_categoria(
+    p_cat_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_cat_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la categoría';
+    END IF;
+
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado de la categoría';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM categorias
+        WHERE cat_id = p_cat_id
+    ) THEN
+        RAISE EXCEPTION 'No existe la categoría indicada';
+    END IF;
+
+    IF p_activo = FALSE AND EXISTS (
+        SELECT 1
+        FROM productos
+        WHERE cat_id = p_cat_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No se puede desactivar la categoría porque tiene productos activos asociados';
+    END IF;
+
+    UPDATE categorias
+    SET activo = p_activo
+    WHERE cat_id = p_cat_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTOS ADMIN: ESTILOS
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_estilo(
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del estilo es obligatorio';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM estilos
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+    ) THEN
+        RAISE EXCEPTION 'Ya existe un estilo con ese nombre';
+    END IF;
+
+    INSERT INTO estilos(nombre, activo)
+    VALUES (TRIM(p_nombre), TRUE);
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE editar_estilo(
+    p_est_id INT,
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_est_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estilo';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del estilo es obligatorio';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM estilos
+        WHERE est_id = p_est_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el estilo indicado';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM estilos
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND est_id <> p_est_id
+    ) THEN
+        RAISE EXCEPTION 'Ya existe otro estilo con ese nombre';
+    END IF;
+
+    UPDATE estilos
+    SET nombre = TRIM(p_nombre)
+    WHERE est_id = p_est_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_estilo(
+    p_est_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_est_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estilo';
+    END IF;
+
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado del estilo';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM estilos
+        WHERE est_id = p_est_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el estilo indicado';
+    END IF;
+
+    IF p_activo = FALSE AND EXISTS (
+        SELECT 1
+        FROM productos
+        WHERE est_id = p_est_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No se puede desactivar el estilo porque tiene productos activos asociados';
+    END IF;
+
+    UPDATE estilos
+    SET activo = p_activo
+    WHERE est_id = p_est_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTOS ADMIN: TALLAS
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_talla(
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre de la talla es obligatorio';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM tallas
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+    ) THEN
+        RAISE EXCEPTION 'Ya existe una talla con ese nombre';
+    END IF;
+
+    INSERT INTO tallas(nombre, activo)
+    VALUES (TRIM(p_nombre), TRUE);
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE editar_talla(
+    p_tal_id INT,
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_tal_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la talla';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre de la talla es obligatorio';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM tallas
+        WHERE tal_id = p_tal_id
+    ) THEN
+        RAISE EXCEPTION 'No existe la talla indicada';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM tallas
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND tal_id <> p_tal_id
+    ) THEN
+        RAISE EXCEPTION 'Ya existe otra talla con ese nombre';
+    END IF;
+
+    UPDATE tallas
+    SET nombre = TRIM(p_nombre)
+    WHERE tal_id = p_tal_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_talla(
+    p_tal_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_tal_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la talla';
+    END IF;
+
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado de la talla';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM tallas
+        WHERE tal_id = p_tal_id
+    ) THEN
+        RAISE EXCEPTION 'No existe la talla indicada';
+    END IF;
+
+    IF p_activo = FALSE AND EXISTS (
+        SELECT 1
+        FROM inventarios
+        WHERE tal_id = p_tal_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No se puede desactivar la talla porque tiene inventarios activos asociados';
+    END IF;
+
+    UPDATE tallas
+    SET activo = p_activo
+    WHERE tal_id = p_tal_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTOS ADMIN: COLORES
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_color(
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del color es obligatorio';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM colores
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+    ) THEN
+        RAISE EXCEPTION 'Ya existe un color con ese nombre';
+    END IF;
+
+    INSERT INTO colores(nombre, activo)
+    VALUES (TRIM(p_nombre), TRUE);
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE editar_color(
+    p_col_id INT,
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_col_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el color';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del color es obligatorio';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM colores
+        WHERE col_id = p_col_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el color indicado';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM colores
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND col_id <> p_col_id
+    ) THEN
+        RAISE EXCEPTION 'Ya existe otro color con ese nombre';
+    END IF;
+
+    UPDATE colores
+    SET nombre = TRIM(p_nombre)
+    WHERE col_id = p_col_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_color(
+    p_col_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_col_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el color';
+    END IF;
+
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado del color';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM colores
+        WHERE col_id = p_col_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el color indicado';
+    END IF;
+
+    IF p_activo = FALSE AND EXISTS (
+        SELECT 1
+        FROM inventarios
+        WHERE col_id = p_col_id
+          AND activo = TRUE
+    ) THEN
+        RAISE EXCEPTION 'No se puede desactivar el color porque tiene inventarios activos asociados';
+    END IF;
+
+    UPDATE colores
+    SET activo = p_activo
+    WHERE col_id = p_col_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTOS ADMIN: MÉTODOS DE PAGO
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_metodo_pago(
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del método de pago es obligatorio';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM metodos_pago
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+    ) THEN
+        RAISE EXCEPTION 'Ya existe un método de pago con ese nombre';
+    END IF;
+
+    INSERT INTO metodos_pago(nombre, activo)
+    VALUES (TRIM(p_nombre), TRUE);
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE editar_metodo_pago(
+    p_met_id INT,
+    p_nombre VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_met_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el método de pago';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre del método de pago es obligatorio';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM metodos_pago
+        WHERE met_id = p_met_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el método de pago indicado';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM metodos_pago
+        WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))
+          AND met_id <> p_met_id
+    ) THEN
+        RAISE EXCEPTION 'Ya existe otro método de pago con ese nombre';
+    END IF;
+
+    UPDATE metodos_pago
+    SET nombre = TRIM(p_nombre)
+    WHERE met_id = p_met_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_metodo_pago(
+    p_met_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_met_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el método de pago';
+    END IF;
+
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado del método de pago';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM metodos_pago
+        WHERE met_id = p_met_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el método de pago indicado';
+    END IF;
+
+    UPDATE metodos_pago
+    SET activo = p_activo
+    WHERE met_id = p_met_id;
+END;
+$$;
+
+-- =========================================================
+-- PROCEDIMIENTO ADMIN: CAMBIAR ESTADO DE PEDIDO
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_pedido(
+    p_ven_id INT,
+    p_estado VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estado VARCHAR(20);
+BEGIN
+    IF p_ven_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la venta o pedido';
+    END IF;
+
+    IF p_estado IS NULL OR TRIM(p_estado) = '' THEN
+        RAISE EXCEPTION 'Debe indicar el estado del pedido';
+    END IF;
+
+    v_estado := UPPER(TRIM(p_estado));
+
+    IF v_estado NOT IN ('PENDIENTE', 'PAGADO', 'ENVIADO', 'ENTREGADO', 'CANCELADO') THEN
+        RAISE EXCEPTION 'Estado de pedido no válido';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM ventas
+        WHERE ven_id = p_ven_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el pedido indicado';
+    END IF;
+
+    UPDATE ventas
+    SET estado = v_estado
+    WHERE ven_id = p_ven_id;
+END;
+$$;

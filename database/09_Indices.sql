@@ -73,3 +73,32 @@ ON pagos (ven_id);
 
 CREATE INDEX IF NOT EXISTS idx_pagos_met_id
 ON pagos (met_id);
+
+-- =========================================================
+-- ÍNDICES ADMINISTRATIVOS
+-- Búsquedas, filtros, stock bajo, pedidos y pagos
+-- =========================================================
+
+CREATE INDEX IF NOT EXISTS idx_productos_nombre_normalizado
+ON productos (LOWER(TRIM(nombre)));
+
+CREATE INDEX IF NOT EXISTS idx_productos_admin_filtros
+ON productos (activo, cat_id, est_id);
+
+CREATE INDEX IF NOT EXISTS idx_inventarios_stock
+ON inventarios (stock);
+
+CREATE INDEX IF NOT EXISTS idx_inventarios_activo_stock
+ON inventarios (activo, stock);
+
+CREATE INDEX IF NOT EXISTS idx_inventarios_producto_stock
+ON inventarios (pro_id, stock);
+
+CREATE INDEX IF NOT EXISTS idx_ventas_estado_fecha
+ON ventas (estado, fecha);
+
+CREATE INDEX IF NOT EXISTS idx_pagos_metodo_fecha
+ON pagos (met_id, fecha);
+
+CREATE INDEX IF NOT EXISTS idx_aud_catalogos_tabla_fecha
+ON aud_catalogos_parametricos (tabla, fecha_cambio);

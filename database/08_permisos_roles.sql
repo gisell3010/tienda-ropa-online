@@ -97,6 +97,19 @@ GRANT SELECT ON
     vw_catalogo_productos,
     vw_admin_productos,
     vw_admin_inventario,
+    vw_admin_stock_bajo,
+    vw_admin_pedidos,
+    vw_admin_pagos,
+    vw_admin_ventas_dia,
+    vw_admin_ventas_metodo_pago,
+    vw_admin_pedidos_estado,
+    vw_admin_productos_agotados,
+    vw_admin_resumen_operativo,
+    vw_admin_categorias,
+    vw_admin_estilos,
+    vw_admin_tallas,
+    vw_admin_colores,
+    vw_admin_metodos_pago,
     vw_resumen_ventas,
     vw_detalle_ventas_admin,
     vw_usuarios_sistema,
@@ -151,6 +164,61 @@ GRANT EXECUTE ON PROCEDURE actualizar_inventario(
     INT,
     INT
 ) TO rol_admin;
+
+
+GRANT EXECUTE ON PROCEDURE eliminar_o_desactivar_inventario(INT, BOOLEAN)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE registrar_categoria(VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE editar_categoria(INT, VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_categoria(INT, BOOLEAN)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE registrar_estilo(VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE editar_estilo(INT, VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_estilo(INT, BOOLEAN)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE registrar_talla(VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE editar_talla(INT, VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_talla(INT, BOOLEAN)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE registrar_color(VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE editar_color(INT, VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_color(INT, BOOLEAN)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE registrar_metodo_pago(VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE editar_metodo_pago(INT, VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_metodo_pago(INT, BOOLEAN)
+TO rol_admin;
+
+GRANT EXECUTE ON PROCEDURE cambiar_estado_pedido(INT, VARCHAR)
+TO rol_admin;
+
+GRANT EXECUTE ON FUNCTION fn_total_venta(INT)
+TO rol_admin;
 
 
 -- =========================================================

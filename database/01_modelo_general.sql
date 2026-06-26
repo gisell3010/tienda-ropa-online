@@ -44,7 +44,8 @@ CREATE TABLE municipios (
 
 CREATE TABLE categorias (
     cat_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- =========================================
@@ -53,7 +54,8 @@ CREATE TABLE categorias (
 
 CREATE TABLE estilos (
     est_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- =========================================
@@ -62,7 +64,8 @@ CREATE TABLE estilos (
 
 CREATE TABLE metodos_pago (
     met_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- =========================================
@@ -71,7 +74,8 @@ CREATE TABLE metodos_pago (
 
 CREATE TABLE tallas (
     tal_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(5) NOT NULL UNIQUE
+    nombre VARCHAR(5) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- =========================================
@@ -80,7 +84,8 @@ CREATE TABLE tallas (
 
 CREATE TABLE colores (
     col_id SERIAL PRIMARY KEY,
-    nombre VARCHAR(30) NOT NULL UNIQUE
+    nombre VARCHAR(30) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- =========================================
@@ -152,6 +157,7 @@ CREATE TABLE inventarios (
     tal_id INT NOT NULL,
     col_id INT NOT NULL,
     stock INT NOT NULL CHECK (stock >= 0),
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT uq_producto_talla_color UNIQUE (pro_id, tal_id, col_id),
 
@@ -168,6 +174,8 @@ CREATE TABLE ventas (
     ven_id SERIAL PRIMARY KEY,
     per_id INT NOT NULL,
     fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+    estado VARCHAR(20) NOT NULL DEFAULT 'PAGADO'
+        CHECK (estado IN ('PENDIENTE', 'PAGADO', 'ENVIADO', 'ENTREGADO', 'CANCELADO')),
     FOREIGN KEY (per_id) REFERENCES personas(per_id)
 );
 

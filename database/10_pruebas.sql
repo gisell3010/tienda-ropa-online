@@ -196,4 +196,112 @@ SELECT * FROM vw_param_metodos_pago;
 REFRESH MATERIALIZED VIEW mv_resumen_ventas_productos;
 SELECT * FROM mv_resumen_ventas_productos;
 
+-- =========================================================
+-- PRUEBAS ADMIN: CATÁLOGOS PARAMÉTRICOS
+-- =========================================================
+
+CALL registrar_categoria('Accesorios prueba');
+
+CALL editar_categoria(
+    (SELECT cat_id FROM categorias WHERE nombre = 'Accesorios prueba'),
+    'Accesorios prueba actualizado'
+);
+
+CALL registrar_estilo('Minimalista prueba');
+
+CALL editar_estilo(
+    (SELECT est_id FROM estilos WHERE nombre = 'Minimalista prueba'),
+    'Minimalista prueba actualizado'
+);
+
+CALL registrar_talla('XXL');
+
+CALL registrar_color('Menta prueba');
+
+CALL registrar_metodo_pago('Transferencia prueba');
+
+CALL cambiar_estado_metodo_pago(
+    (SELECT met_id FROM metodos_pago WHERE nombre = 'Transferencia prueba'),
+    FALSE
+);
+
+
+-- =========================================================
+-- PRUEBAS ADMIN: PRODUCTO E INVENTARIO
+-- =========================================================
+
+CALL registrar_producto(
+    'Bolso accesorio prueba',
+    75000,
+    'https://ejemplo.com/bolso.jpg',
+    (SELECT cat_id FROM categorias WHERE nombre = 'Accesorios prueba actualizado'),
+    (SELECT est_id FROM estilos WHERE nombre = 'Minimalista prueba actualizado')
+);
+
+CALL registrar_inventario(
+    (SELECT pro_id FROM productos WHERE nombre = 'Bolso accesorio prueba'),
+    3,
+    (SELECT tal_id FROM tallas WHERE nombre = 'XXL'),
+    (SELECT col_id FROM colores WHERE nombre = 'Menta prueba')
+);
+
+SELECT * FROM vw_admin_stock_bajo;
+
+CALL actualizar_inventario(
+    (
+        SELECT i.inv_id
+        FROM inventarios i
+        INNER JOIN productos p ON p.pro_id = i.pro_id
+        WHERE p.nombre = 'Bolso accesorio prueba'
+        LIMIT 1
+    ),
+    8
+);
+
+CALL eliminar_o_desactivar_inventario(
+    (
+        SELECT i.inv_id
+        FROM inventarios i
+        INNER JOIN productos p ON p.pro_id = i.pro_id
+        WHERE p.nombre = 'Bolso accesorio prueba'
+        LIMIT 1
+    ),
+    FALSE
+);
+
+
+-- =========================================================
+-- PRUEBAS ADMIN: PEDIDOS Y PAGOS
+-- =========================================================
+
+SELECT * FROM vw_admin_pedidos;
+SELECT * FROM vw_admin_pagos;
+SELECT * FROM vw_admin_ventas_dia;
+SELECT * FROM vw_admin_ventas_metodo_pago;
+SELECT * FROM vw_admin_pedidos_estado;
+SELECT * FROM vw_admin_productos_agotados;
+SELECT * FROM vw_admin_resumen_operativo;
+
+CALL cambiar_estado_pedido(
+    (
+        SELECT ven_id
+        FROM ventas
+        ORDER BY ven_id DESC
+        LIMIT 1
+    ),
+    'ENVIADO'
+);
+
+SELECT * FROM vw_admin_pedidos;
+
+
+-- =========================================================
+-- PRUEBAS ADMIN: AUDITORÍA
+-- =========================================================
+
+SELECT *
+FROM vw_auditoria_general
+WHERE tabla IN ('categorias', 'estilos', 'tallas', 'colores', 'metodos_pago', 'inventarios', 'ventas')
+ORDER BY fecha_cambio DESC;
+
 ROLLBACK;

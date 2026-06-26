@@ -2,114 +2,121 @@ package com.tienda.backend.service;
 
 import com.tienda.backend.dto.UsuarioAdminDTO;
 import com.tienda.backend.dto.UsuarioCreateDTO;
-import com.tienda.backend.model.Persona;
-import com.tienda.backend.model.Rol;
-import com.tienda.backend.repository.PersonaRepository;
-import com.tienda.backend.repository.RolRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
+import java.sql.CallableStatement;
+import java.sql.Types;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 public class UsuarioService {
 
-    private final PersonaRepository personaRepository;
-    private final RolRepository rolRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
 
     public UsuarioService(
-            PersonaRepository personaRepository,
-            RolRepository rolRepository,
+            JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder
     ) {
-        this.personaRepository = personaRepository;
-        this.rolRepository = rolRepository;
+        this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
     }
 
     public UsuarioAdminDTO crearUsuario(UsuarioCreateDTO request) {
-        String correo = request.getCorreo().trim().toLowerCase();
         String rolNombre = request.getRol().trim().toUpperCase();
+        String contrasenaHash = passwordEncoder.encode(request.getPassword());
 
-        if (personaRepository.existsByCorreoIgnoreCase(correo)) {
-            throw new RuntimeException("El correo ya está registrado");
-        }
+        if (rolNombre.equals("CLIENTE")) {
+            jdbcTemplate.update(
+                    "CALL registrar_cliente(?, ?, ?, ?, ?, ?)",
+                    request.getNombre(),
+                    request.getTelefono(),
+                    request.getCorreo(),
+                    contrasenaHash,
+                    request.getGenero(),
+                    java.sql.Date.valueOf(request.getFechaNacimiento())
+            );
+        } else if (rolNombre.equals("ADMIN") || rolNombre.equals("SUPERADMIN")) {
+            Integer rolId = jdbcTemplate.queryForObject(
+                    "SELECT rol_id FROM roles WHERE nombre = ?",
+                    Integer.class,
+                    rolNombre
+            );
 
-        if (!rolNombre.equals("CLIENTE")
-                && !rolNombre.equals("ADMIN")
-                && !rolNombre.equals("SUPERADMIN")) {
+            jdbcTemplate.update(
+                    "CALL registrar_usuario_admin(?, ?, ?, ?, ?, ?, ?)",
+                    request.getNombre(),
+                    request.getTelefono(),
+                    request.getCorreo(),
+                    contrasenaHash,
+                    request.getGenero(),
+                    java.sql.Date.valueOf(request.getFechaNacimiento()),
+                    rolId
+            );
+        } else {
             throw new RuntimeException("Rol inválido");
         }
 
-        Rol rol = rolRepository.findByNombreIgnoreCase(rolNombre)
-                .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
-
-        Persona persona = new Persona();
-        persona.setNombre(request.getNombre().trim());
-        persona.setTelefono(request.getTelefono().trim());
-        persona.setCorreo(correo);
-        persona.setContrasenaHash(passwordEncoder.encode(request.getPassword()));
-        persona.setGenero(request.getGenero().trim().toUpperCase().charAt(0));
-        persona.setFechaNacimiento(LocalDate.parse(request.getFechaNacimiento()));
-        persona.setActivo(true);
-        persona.setRol(rol);
-
-        Persona guardada = personaRepository.save(persona);
-
-        return convertirADto(guardada);
+        return obtenerUsuarioPorCorreo(request.getCorreo());
     }
 
-    public List<UsuarioAdminDTO> listarUsuarios() {
-        return personaRepository.findAll()
-                .stream()
-                .map(this::convertirADto)
-                .collect(Collectors.toList());
+    public List<Map<String, Object>> listarUsuarios() {
+        return jdbcTemplate.queryForList(
+                "SELECT * FROM vw_usuarios_sistema_detalle ORDER BY per_id"
+        );
     }
 
-    public UsuarioAdminDTO obtenerUsuario(Integer id) {
-        Persona persona = personaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    public Map<String, Object> obtenerUsuario(Integer id) {
+        List<Map<String, Object>> resultado = jdbcTemplate.queryForList(
+                "SELECT * FROM vw_usuarios_sistema_detalle WHERE per_id = ?",
+                id
+        );
 
-        return convertirADto(persona);
-    }
-
-    public void cambiarRol(Integer usuarioId, String nuevoRol) {
-        String rolNombre = nuevoRol.trim().toUpperCase();
-
-        if (!rolNombre.equals("CLIENTE")
-                && !rolNombre.equals("ADMIN")
-                && !rolNombre.equals("SUPERADMIN")) {
-            throw new RuntimeException("Rol inválido");
+        if (resultado.isEmpty()) {
+            throw new RuntimeException("Usuario no encontrado");
         }
 
-        Persona persona = personaRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        return resultado.get(0);
+    }
 
-        Rol rol = rolRepository.findByNombreIgnoreCase(rolNombre)
-                .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
+    public List<Map<String, Object>> listarRoles() {
+        return jdbcTemplate.queryForList(
+                "SELECT * FROM vw_roles_sistema ORDER BY rol_id"
+        );
+    }
 
-        persona.setRol(rol);
-        personaRepository.save(persona);
+    public void cambiarRol(Integer usuarioId, Integer rolId) {
+        jdbcTemplate.update(
+                "CALL cambiar_rol_persona(?, ?)",
+                usuarioId,
+                rolId
+        );
     }
 
     public void cambiarEstado(Integer usuarioId, Boolean activo) {
-        personaRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        personaRepository.cambiarEstadoPersona(usuarioId, activo);
+        jdbcTemplate.update(
+                "CALL cambiar_estado_persona(?, ?)",
+                usuarioId,
+                activo
+        );
     }
 
-    private UsuarioAdminDTO convertirADto(Persona persona) {
+    private UsuarioAdminDTO obtenerUsuarioPorCorreo(String correo) {
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+                "SELECT * FROM vw_usuarios_sistema_detalle WHERE LOWER(correo) = LOWER(?)",
+                correo
+        );
+
         return new UsuarioAdminDTO(
-                persona.getPerId(),
-                persona.getNombre(),
-                persona.getCorreo(),
-                persona.getTelefono(),
-                persona.getRol().getNombre(),
-                persona.getActivo()
+                ((Number) row.get("per_id")).intValue(),
+                row.get("nombre").toString(),
+                row.get("correo").toString(),
+                row.get("telefono") == null ? null : row.get("telefono").toString(),
+                row.get("rol").toString(),
+                (Boolean) row.get("activo")
         );
     }
 }

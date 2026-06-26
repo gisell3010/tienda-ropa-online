@@ -11,15 +11,12 @@ public class AuditoriaController {
 
     private final AuditoriaService service;
 
-    public AuditoriaController(
-            AuditoriaService service) {
-
+    public AuditoriaController(AuditoriaService service) {
         this.service = service;
     }
 
     @GetMapping
     public ResponseEntity<?> listarAuditoria() {
-
         return ResponseEntity.ok(
                 new ApiResponse<>(
                         true,
@@ -31,15 +28,37 @@ public class AuditoriaController {
 
     @GetMapping("/tabla/{tabla}")
     public ResponseEntity<?> auditoriaPorTabla(
-        @PathVariable String tabla) {
-
-    return ResponseEntity.ok(
-            new ApiResponse<>(
-                    true,
-                    "Auditoría obtenida correctamente",
-                    service.auditoriaPorTabla(tabla)
-            )
+            @PathVariable String tabla
+    ) {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Auditoría obtenida correctamente",
+                        service.auditoriaPorTabla(tabla)
+                )
         );
     }
 
+    @GetMapping("/filtro")
+    public ResponseEntity<?> auditoriaConFiltros(
+            @RequestParam(required = false) String tabla,
+            @RequestParam(required = false) String operacion,
+            @RequestParam(required = false) String registradoPor,
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta
+    ) {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Auditoría filtrada correctamente",
+                        service.auditoriaConFiltros(
+                                tabla,
+                                operacion,
+                                registradoPor,
+                                desde,
+                                hasta
+                        )
+                )
+        );
+    }
 }

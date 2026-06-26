@@ -54,6 +54,17 @@ public class UsuarioController {
         );
     }
 
+    @GetMapping("/roles")
+    public ResponseEntity<?> listarRoles() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Roles obtenidos correctamente",
+                        service.listarRoles()
+                )
+        );
+    }
+
     @PatchMapping("/{id}/estado")
     public ResponseEntity<?> cambiarEstado(
             @PathVariable Integer id,
@@ -80,7 +91,7 @@ public class UsuarioController {
     ) {
         service.cambiarRol(
                 id,
-                body.get("rol").toString()
+                Integer.valueOf(body.get("rolId").toString())
         );
 
         return ResponseEntity.ok(

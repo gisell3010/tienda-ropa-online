@@ -54,11 +54,26 @@ public class UsuarioController {
         );
     }
 
+    @GetMapping("/roles")
+    public ResponseEntity<?> listarRoles() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Roles obtenidos correctamente",
+                        service.listarRoles()
+                )
+        );
+    }
+
     @PatchMapping("/{id}/estado")
     public ResponseEntity<?> cambiarEstado(
             @PathVariable Integer id,
             @RequestBody Map<String, Object> body
     ) {
+        if (!body.containsKey("activo") || body.get("activo") == null) {
+            throw new RuntimeException("Debe indicar el estado del usuario");
+        }
+
         service.cambiarEstado(
                 id,
                 Boolean.valueOf(body.get("activo").toString())
@@ -78,10 +93,19 @@ public class UsuarioController {
             @PathVariable Integer id,
             @RequestBody Map<String, Object> body
     ) {
-        service.cambiarRol(
-                id,
-                body.get("rol").toString()
-        );
+        if (body.containsKey("rolId") && body.get("rolId") != null) {
+            service.cambiarRolPorId(
+                    id,
+                    Integer.valueOf(body.get("rolId").toString())
+            );
+        } else if (body.containsKey("rol") && body.get("rol") != null) {
+            service.cambiarRol(
+                    id,
+                    body.get("rol").toString()
+            );
+        } else {
+            throw new RuntimeException("Debe indicar el rol del usuario");
+        }
 
         return ResponseEntity.ok(
                 new ApiResponse<>(

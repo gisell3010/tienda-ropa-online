@@ -3,8 +3,11 @@
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 
+
+
 -- =========================================================
--- FUNCIONES DEL CLIENTE
+-- SECCIÓN GENERAL
+-- Validaciones y procedimientos base usados por varios roles
 -- =========================================================
 
 -- =========================================================
@@ -103,126 +106,6 @@ BEGIN
     ELSE
         RETURN 'DISPONIBLE';
     END IF;
-END;
-$$;
-
-
--- =========================================================
--- PROCEDIMIENTO: REGISTRAR INVENTARIO
--- =========================================================
-
-CREATE OR REPLACE PROCEDURE registrar_inventario(
-    p_pro_id INT,
-    p_stock INT,
-    p_tal_id INT,
-    p_col_id INT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_pro_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar el producto';
-    END IF;
-
-    IF p_tal_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar la talla';
-    END IF;
-
-    IF p_col_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar el color';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
-        RAISE EXCEPTION 'No existe el producto indicado';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM tallas WHERE tal_id = p_tal_id) THEN
-        RAISE EXCEPTION 'No existe la talla indicada';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM colores WHERE col_id = p_col_id) THEN
-        RAISE EXCEPTION 'No existe el color indicado';
-    END IF;
-
-    PERFORM fn_validar_stock(p_stock);
-
-    INSERT INTO inventarios (
-        pro_id,
-        stock,
-        tal_id,
-        col_id
-    )
-    VALUES (
-        p_pro_id,
-        p_stock,
-        p_tal_id,
-        p_col_id
-    )
-    ON CONFLICT (pro_id, tal_id, col_id)
-    DO UPDATE SET
-        stock = inventarios.stock + EXCLUDED.stock;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al registrar inventario: %', SQLERRM;
-END;
-$$;
-
-
--- =========================================================
--- PROCEDIMIENTO: AUMENTAR STOCK
--- =========================================================
-
-CREATE OR REPLACE PROCEDURE aumentar_stock(
-    p_inv_id INT,
-    p_cantidad INT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_inv_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar el inventario';
-    END IF;
-
-    IF p_cantidad IS NULL OR p_cantidad <= 0 THEN
-        RAISE EXCEPTION 'La cantidad a aumentar debe ser mayor que cero';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM inventarios WHERE inv_id = p_inv_id) THEN
-        RAISE EXCEPTION 'No existe el inventario indicado';
-    END IF;
-
-    UPDATE inventarios
-    SET stock = stock + p_cantidad
-    WHERE inv_id = p_inv_id;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al aumentar stock: %', SQLERRM;
-END;
-$$;
-
--- =========================================================
--- PROCEDIMIENTO: ACTIVAR/DESACTIVAR USUSARIO
--- =========================================================
-CREATE OR REPLACE PROCEDURE cambiar_estado_persona(
-    p_per_id INT,
-    p_activo BOOLEAN
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF p_activo IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar el estado de la persona';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM personas WHERE per_id = p_per_id) THEN
-        RAISE EXCEPTION 'No existe la persona indicada';
-    END IF;
-
-    UPDATE personas
-    SET activo = p_activo
-    WHERE per_id = p_per_id;
 END;
 $$;
 
@@ -373,7 +256,6 @@ $$;
 
 -- =========================================================
 -- PROCEDIMIENTO CLIENTE: REGISTRAR CLIENTE
--- REEMPLAZA el registrar_cliente(...) que ya tienes.
 -- =========================================================
 
 CREATE OR REPLACE PROCEDURE registrar_cliente(
@@ -565,6 +447,7 @@ $$;
 -- =========================================================
 -- FUNCIÓN CLIENTE: REALIZAR COMPRA CON CARRITO
 -- =========================================================
+
 CREATE OR REPLACE FUNCTION realizar_compra_carrito(
     p_per_id INT,
     p_met_id INT,
@@ -707,9 +590,111 @@ $$;
 
 
 
+-- =========================================================
+-- PROCEDIMIENTOS DEL ADMINISTRADOR
+-- =========================================================
+
+-- =========================================================
+-- PROCEDIMIENTO: REGISTRAR INVENTARIO
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_inventario(
+    p_pro_id INT,
+    p_stock INT,
+    p_tal_id INT,
+    p_col_id INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_pro_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el producto';
+    END IF;
+
+    IF p_tal_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la talla';
+    END IF;
+
+    IF p_col_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el color';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM productos WHERE pro_id = p_pro_id) THEN
+        RAISE EXCEPTION 'No existe el producto indicado';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM tallas WHERE tal_id = p_tal_id) THEN
+        RAISE EXCEPTION 'No existe la talla indicada';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM colores WHERE col_id = p_col_id) THEN
+        RAISE EXCEPTION 'No existe el color indicado';
+    END IF;
+
+    PERFORM fn_validar_stock(p_stock);
+
+    INSERT INTO inventarios (
+        pro_id,
+        stock,
+        tal_id,
+        col_id
+    )
+    VALUES (
+        p_pro_id,
+        p_stock,
+        p_tal_id,
+        p_col_id
+    )
+    ON CONFLICT (pro_id, tal_id, col_id)
+    DO UPDATE SET
+        stock = inventarios.stock + EXCLUDED.stock;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error al registrar inventario: %', SQLERRM;
+END;
+$$;
 
 
+-- =========================================================
+-- PROCEDIMIENTO: AUMENTAR STOCK
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE aumentar_stock(
+    p_inv_id INT,
+    p_cantidad INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF p_inv_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el inventario';
+    END IF;
+
+    IF p_cantidad IS NULL OR p_cantidad <= 0 THEN
+        RAISE EXCEPTION 'La cantidad a aumentar debe ser mayor que cero';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM inventarios WHERE inv_id = p_inv_id) THEN
+        RAISE EXCEPTION 'No existe el inventario indicado';
+    END IF;
+
+    UPDATE inventarios
+    SET stock = stock + p_cantidad
+    WHERE inv_id = p_inv_id;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error al aumentar stock: %', SQLERRM;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO: REGISTRAR USUARIO ADMINISTRATIVO
 -- Solo para uso administrativo
+-- =========================================================
+
 CREATE OR REPLACE PROCEDURE registrar_usuario_admin(
     p_nombre VARCHAR,
     p_telefono VARCHAR,
@@ -748,10 +733,6 @@ BEGIN
     );
 END;
 $$;
-
-
-
-
 
 
 -- =========================================================
@@ -888,6 +869,7 @@ BEGIN
 END;
 $$;
 
+
 -- =========================================================
 -- PROCEDIMIENTO: ACTUALIZAR INVENTARIO
 -- Reemplaza el stock exacto de un inventario existente
@@ -910,4 +892,128 @@ BEGIN
     SET stock = p_stock
     WHERE inv_id = p_inv_id;
 END;
-$$; 
+$$;
+
+
+
+-- =========================================================
+-- PROCEDIMIENTOS DEL SUPERADMINISTRADOR
+-- =========================================================
+
+-- =========================================================
+-- PROCEDIMIENTO: CAMBIAR ESTADO DE PERSONA
+-- No permite desactivar el último SUPERADMIN activo.
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE cambiar_estado_persona(
+    p_per_id INT,
+    p_activo BOOLEAN
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_rol_actual VARCHAR;
+    v_superadmin_activos INT;
+BEGIN
+    IF p_activo IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el estado de la persona';
+    END IF;
+
+    SELECT r.nombre
+    INTO v_rol_actual
+    FROM personas p
+    INNER JOIN roles r ON r.rol_id = p.rol_id
+    WHERE p.per_id = p_per_id;
+
+    IF v_rol_actual IS NULL THEN
+        RAISE EXCEPTION 'No existe la persona indicada';
+    END IF;
+
+    IF v_rol_actual = 'SUPERADMIN' AND p_activo = FALSE THEN
+        SELECT COUNT(*)
+        INTO v_superadmin_activos
+        FROM personas p
+        INNER JOIN roles r ON r.rol_id = p.rol_id
+        WHERE r.nombre = 'SUPERADMIN'
+          AND p.activo = TRUE
+          AND p.per_id <> p_per_id;
+
+        IF v_superadmin_activos = 0 THEN
+            RAISE EXCEPTION 'No se puede desactivar el último SUPERADMIN activo';
+        END IF;
+    END IF;
+
+    UPDATE personas
+    SET activo = p_activo
+    WHERE per_id = p_per_id;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO: CAMBIAR ROL DE PERSONA
+-- No permite dejar el sistema sin SUPERADMIN activo.
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE cambiar_rol_persona(
+    p_per_id INT,
+    p_rol_id INT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_rol_actual VARCHAR;
+    v_rol_nuevo VARCHAR;
+    v_superadmin_activos INT;
+BEGIN
+    SELECT r.nombre
+    INTO v_rol_actual
+    FROM personas p
+    INNER JOIN roles r ON r.rol_id = p.rol_id
+    WHERE p.per_id = p_per_id;
+
+    IF v_rol_actual IS NULL THEN
+        RAISE EXCEPTION 'No existe la persona indicada';
+    END IF;
+
+    SELECT nombre
+    INTO v_rol_nuevo
+    FROM roles
+    WHERE rol_id = p_rol_id;
+
+    IF v_rol_nuevo IS NULL THEN
+        RAISE EXCEPTION 'No existe el rol indicado';
+    END IF;
+
+    IF v_rol_actual = 'SUPERADMIN' AND v_rol_nuevo <> 'SUPERADMIN' THEN
+        SELECT COUNT(*)
+        INTO v_superadmin_activos
+        FROM personas p
+        INNER JOIN roles r ON r.rol_id = p.rol_id
+        WHERE r.nombre = 'SUPERADMIN'
+          AND p.activo = TRUE
+          AND p.per_id <> p_per_id;
+
+        IF v_superadmin_activos = 0 THEN
+            RAISE EXCEPTION 'No se puede cambiar el rol del último SUPERADMIN activo';
+        END IF;
+    END IF;
+
+    UPDATE personas
+    SET rol_id = p_rol_id
+    WHERE per_id = p_per_id;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO: REFRESCAR REPORTES MATERIALIZADOS
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE refrescar_reportes()
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW mv_resumen_ventas_productos;
+END;
+$$;

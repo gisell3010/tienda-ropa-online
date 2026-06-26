@@ -1,24 +1,86 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
   crearUsuario,
   listarUsuarios,
+  listarRoles,
   cambiarEstadoUsuario,
   cambiarRolUsuario,
   listarAuditoria,
-  obtenerReporteGeneral
+  filtrarAuditoria,
+  obtenerReporteGeneral,
+  obtenerVentasPorProducto,
+  obtenerVentasPorPeriodo,
+  obtenerVentasPorMetodoPago,
+  obtenerTopProductos,
+  obtenerClientesMasCompras,
+  obtenerProductosBajoStock,
+  obtenerUsuariosPorRol,
+  refrescarReportes
 } from "../services/superAdminService";
 import "../styles/admin.css";
+
+function obtenerIdUsuario(usuarioItem) {
+  return usuarioItem.per_id || usuarioItem.perId || usuarioItem.id;
+}
+
+function obtenerRolId(usuarioItem, roles) {
+  const rolId = usuarioItem.rol_id || usuarioItem.rolId;
+
+  if (rolId) {
+    return rolId;
+  }
+
+  const rol = roles.find(
+    (item) => (item.rol || item.nombre) === usuarioItem.rol
+  );
+
+  return rol?.rol_id || rol?.rolId || "";
+}
+
+function mostrarOperacion(operacion) {
+  if (operacion === "I") return "Insertó";
+  if (operacion === "U") return "Actualizó";
+  if (operacion === "D") return "Eliminó";
+  return operacion || "Sin operación";
+}
+
+function obtenerValor(objeto, ...claves) {
+  for (const clave of claves) {
+    if (objeto?.[clave] !== undefined && objeto?.[clave] !== null) {
+      return objeto[clave];
+    }
+  }
+
+  return "";
+}
 
 function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
   const { token } = useAuth();
 
   const [usuarios, setUsuarios] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [auditorias, setAuditorias] = useState([]);
   const [reporte, setReporte] = useState({});
+  const [ventasProductos, setVentasProductos] = useState([]);
+  const [ventasPeriodo, setVentasPeriodo] = useState([]);
+  const [ventasMetodoPago, setVentasMetodoPago] = useState([]);
+  const [topProductos, setTopProductos] = useState([]);
+  const [clientesCompras, setClientesCompras] = useState([]);
+  const [productosBajoStock, setProductosBajoStock] = useState([]);
+  const [usuariosPorRol, setUsuariosPorRol] = useState([]);
+
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("");
   const [cargando, setCargando] = useState(true);
+
+  const [filtrosAuditoria, setFiltrosAuditoria] = useState({
+    tabla: "",
+    operacion: "",
+    registradoPor: "",
+    desde: "",
+    hasta: ""
+  });
 
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: "",
@@ -30,18 +92,56 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
     rol: "ADMIN"
   });
 
+  const tablasAuditoria = useMemo(() => {
+    const tablas = auditorias
+      .map((item) => item.tabla)
+      .filter(Boolean);
+
+    return [...new Set(tablas)];
+  }, [auditorias]);
+
   const cargarInformacion = useCallback(async () => {
     try {
       setCargando(true);
       setMensaje("");
 
-      const usuariosData = await listarUsuarios(token);
-      const auditoriaData = await listarAuditoria(token);
-      const reporteData = await obtenerReporteGeneral(token);
+      const [
+        usuariosData,
+        rolesData,
+        auditoriaData,
+        reporteData,
+        ventasProductoData,
+        ventasPeriodoData,
+        ventasMetodoPagoData,
+        topProductosData,
+        clientesComprasData,
+        productosBajoStockData,
+        usuariosPorRolData
+      ] = await Promise.all([
+        listarUsuarios(token),
+        listarRoles(token),
+        listarAuditoria(token),
+        obtenerReporteGeneral(token),
+        obtenerVentasPorProducto(token),
+        obtenerVentasPorPeriodo(token),
+        obtenerVentasPorMetodoPago(token),
+        obtenerTopProductos(token),
+        obtenerClientesMasCompras(token),
+        obtenerProductosBajoStock(token),
+        obtenerUsuariosPorRol(token)
+      ]);
 
       setUsuarios(usuariosData);
+      setRoles(rolesData);
       setAuditorias(auditoriaData);
       setReporte(reporteData);
+      setVentasProductos(ventasProductoData);
+      setVentasPeriodo(ventasPeriodoData);
+      setVentasMetodoPago(ventasMetodoPagoData);
+      setTopProductos(topProductosData);
+      setClientesCompras(clientesComprasData);
+      setProductosBajoStock(productosBajoStockData);
+      setUsuariosPorRol(usuariosPorRolData);
     } catch (error) {
       setMensaje(error.message || "No se pudo cargar la información.");
       setTipoMensaje("error");
@@ -51,7 +151,6 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
   }, [token]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarInformacion();
   }, [cargarInformacion]);
 
@@ -60,6 +159,15 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
 
     setNuevoUsuario((datos) => ({
       ...datos,
+      [name]: value
+    }));
+  };
+
+  const actualizarFiltroAuditoria = (evento) => {
+    const { name, value } = evento.target;
+
+    setFiltrosAuditoria((filtros) => ({
+      ...filtros,
       [name]: value
     }));
   };
@@ -105,7 +213,11 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
 
   const actualizarEstado = async (usuarioItem) => {
     try {
-      await cambiarEstadoUsuario(usuarioItem.id, !usuarioItem.activo, token);
+      const usuarioId = obtenerIdUsuario(usuarioItem);
+
+      await cambiarEstadoUsuario(usuarioId, !usuarioItem.activo, token);
+      setMensaje("Estado del usuario actualizado.");
+      setTipoMensaje("success");
       await cargarInformacion();
     } catch (error) {
       setMensaje(error.message || "No se pudo cambiar el estado del usuario.");
@@ -113,12 +225,58 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
     }
   };
 
-  const actualizarRol = async (usuarioId, rol) => {
+  const actualizarRol = async (usuarioItem, rolId) => {
     try {
-      await cambiarRolUsuario(usuarioId, rol, token);
+      const usuarioId = obtenerIdUsuario(usuarioItem);
+
+      await cambiarRolUsuario(usuarioId, rolId, token);
+      setMensaje("Rol actualizado correctamente.");
+      setTipoMensaje("success");
       await cargarInformacion();
     } catch (error) {
       setMensaje(error.message || "No se pudo cambiar el rol del usuario.");
+      setTipoMensaje("error");
+    }
+  };
+
+  const aplicarFiltrosAuditoria = async (evento) => {
+    evento.preventDefault();
+
+    try {
+      const auditoriaFiltrada = await filtrarAuditoria(
+        filtrosAuditoria,
+        token
+      );
+
+      setAuditorias(auditoriaFiltrada);
+      setMensaje("Auditoría filtrada correctamente.");
+      setTipoMensaje("success");
+    } catch (error) {
+      setMensaje(error.message || "No se pudo filtrar la auditoría.");
+      setTipoMensaje("error");
+    }
+  };
+
+  const limpiarFiltrosAuditoria = async () => {
+    setFiltrosAuditoria({
+      tabla: "",
+      operacion: "",
+      registradoPor: "",
+      desde: "",
+      hasta: ""
+    });
+
+    await cargarInformacion();
+  };
+
+  const actualizarReportes = async () => {
+    try {
+      await refrescarReportes(token);
+      setMensaje("Reportes actualizados correctamente.");
+      setTipoMensaje("success");
+      await cargarInformacion();
+    } catch (error) {
+      setMensaje(error.message || "No se pudieron actualizar los reportes.");
       setTipoMensaje("error");
     }
   };
@@ -131,7 +289,7 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
           <h1>Control general del sistema</h1>
           <p>
             Desde este módulo se crean administradores, se gestionan usuarios,
-            roles, estados y auditorías del sistema.
+            roles, auditorías, seguridad y reportes generales.
           </p>
         </div>
 
@@ -149,26 +307,38 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
       <section className="admin-summary-grid">
         <article className="admin-summary-card">
           <p>Usuarios</p>
-          <h2>{usuarios.length}</h2>
+          <h2>{obtenerValor(reporte, "total_usuarios", "totalUsuarios") || usuarios.length}</h2>
           <span>Registrados en el sistema</span>
         </article>
 
         <article className="admin-summary-card">
-          <p>Auditorías</p>
-          <h2>{auditorias.length}</h2>
-          <span>Movimientos registrados</span>
+          <p>Usuarios activos</p>
+          <h2>{obtenerValor(reporte, "usuarios_activos", "usuariosActivos") || 0}</h2>
+          <span>Usuarios habilitados</span>
         </article>
 
         <article className="admin-summary-card">
           <p>Productos</p>
-          <h2>{reporte.totalProductos || reporte.total_productos || 0}</h2>
+          <h2>{obtenerValor(reporte, "total_productos", "totalProductos") || 0}</h2>
           <span>Productos del catálogo</span>
         </article>
 
         <article className="admin-summary-card">
           <p>Ventas</p>
-          <h2>{reporte.totalVentas || reporte.total_ventas || 0}</h2>
+          <h2>{obtenerValor(reporte, "total_ventas", "totalVentas") || 0}</h2>
           <span>Ventas registradas</span>
+        </article>
+
+        <article className="admin-summary-card">
+          <p>Monto vendido</p>
+          <h2>${Number(obtenerValor(reporte, "monto_ventas", "montoVentas") || 0).toLocaleString("es-CO")}</h2>
+          <span>Total vendido</span>
+        </article>
+
+        <article className="admin-summary-card">
+          <p>Auditorías</p>
+          <h2>{obtenerValor(reporte, "total_auditorias", "totalAuditorias") || auditorias.length}</h2>
+          <span>Movimientos registrados</span>
         </article>
       </section>
 
@@ -181,8 +351,11 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
       <section className="admin-table-section">
         <div className="admin-section-header">
           <div>
-            <h2>Crear usuario administrativo</h2>
-            <p>Desde aquí el superadministrador puede crear administradores.</p>
+            <h2>Crear usuario</h2>
+            <p>
+              El superadministrador puede crear usuarios usando los
+              procedimientos centralizados en PostgreSQL.
+            </p>
           </div>
         </div>
 
@@ -260,9 +433,14 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
               value={nuevoUsuario.rol}
               onChange={actualizarCampo}
             >
-              <option value="ADMIN">ADMIN</option>
-              <option value="SUPERADMIN">SUPERADMIN</option>
-              <option value="CLIENTE">CLIENTE</option>
+              {roles.map((rol) => (
+                <option
+                  key={rol.rol_id || rol.rolId}
+                  value={rol.rol || rol.nombre}
+                >
+                  {rol.rol || rol.nombre}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -286,11 +464,16 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
           <div className="admin-empty-state">
             <p>Cargando información del superadministrador...</p>
           </div>
+        ) : usuarios.length === 0 ? (
+          <div className="admin-empty-state">
+            <p>No hay usuarios registrados.</p>
+          </div>
         ) : (
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead>
                 <tr>
+                  <th>ID</th>
                   <th>Nombre</th>
                   <th>Correo</th>
                   <th>Teléfono</th>
@@ -302,20 +485,26 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
 
               <tbody>
                 {usuarios.map((usuarioItem) => (
-                  <tr key={usuarioItem.id}>
+                  <tr key={obtenerIdUsuario(usuarioItem)}>
+                    <td>{obtenerIdUsuario(usuarioItem)}</td>
                     <td>{usuarioItem.nombre}</td>
                     <td>{usuarioItem.correo}</td>
-                    <td>{usuarioItem.telefono}</td>
+                    <td>{usuarioItem.telefono || "Sin teléfono"}</td>
                     <td>
                       <select
-                        value={usuarioItem.rol}
+                        value={obtenerRolId(usuarioItem, roles)}
                         onChange={(evento) =>
-                          actualizarRol(usuarioItem.id, evento.target.value)
+                          actualizarRol(usuarioItem, evento.target.value)
                         }
                       >
-                        <option value="CLIENTE">CLIENTE</option>
-                        <option value="ADMIN">ADMIN</option>
-                        <option value="SUPERADMIN">SUPERADMIN</option>
+                        {roles.map((rol) => (
+                          <option
+                            key={rol.rol_id || rol.rolId}
+                            value={rol.rol_id || rol.rolId}
+                          >
+                            {rol.rol || rol.nombre}
+                          </option>
+                        ))}
                       </select>
                     </td>
                     <td>{usuarioItem.activo ? "Activo" : "Inactivo"}</td>
@@ -339,32 +528,289 @@ function SuperAdminDashboardPage({ usuario, cerrarSesionUsuario }) {
         <div className="admin-section-header">
           <div>
             <h2>Auditoría general</h2>
-            <p>Últimos movimientos registrados en la base de datos.</p>
+            <p>Filtra movimientos registrados automáticamente en PostgreSQL.</p>
           </div>
         </div>
+
+        <form className="admin-form-grid" onSubmit={aplicarFiltrosAuditoria}>
+          <label>
+            Tabla
+            <select
+              name="tabla"
+              value={filtrosAuditoria.tabla}
+              onChange={actualizarFiltroAuditoria}
+            >
+              <option value="">Todas</option>
+              {tablasAuditoria.map((tabla) => (
+                <option key={tabla} value={tabla}>
+                  {tabla}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Operación
+            <select
+              name="operacion"
+              value={filtrosAuditoria.operacion}
+              onChange={actualizarFiltroAuditoria}
+            >
+              <option value="">Todas</option>
+              <option value="I">Insertó</option>
+              <option value="U">Actualizó</option>
+              <option value="D">Eliminó</option>
+            </select>
+          </label>
+
+          <label>
+            Usuario BD
+            <input
+              name="registradoPor"
+              value={filtrosAuditoria.registradoPor}
+              onChange={actualizarFiltroAuditoria}
+              placeholder="postgres"
+            />
+          </label>
+
+          <label>
+            Desde
+            <input
+              type="date"
+              name="desde"
+              value={filtrosAuditoria.desde}
+              onChange={actualizarFiltroAuditoria}
+            />
+          </label>
+
+          <label>
+            Hasta
+            <input
+              type="date"
+              name="hasta"
+              value={filtrosAuditoria.hasta}
+              onChange={actualizarFiltroAuditoria}
+            />
+          </label>
+
+          <button type="submit">Filtrar auditoría</button>
+          <button type="button" onClick={limpiarFiltrosAuditoria}>
+            Limpiar filtros
+          </button>
+        </form>
 
         <div className="admin-table-wrapper">
           <table className="admin-table">
             <thead>
               <tr>
                 <th>Tabla</th>
+                <th>ID afectado</th>
                 <th>Operación</th>
                 <th>Fecha</th>
                 <th>Usuario BD</th>
+                <th>Detalle</th>
               </tr>
             </thead>
 
             <tbody>
-              {auditorias.slice(0, 20).map((auditoria, index) => (
+              {auditorias.slice(0, 50).map((auditoria, index) => (
                 <tr key={index}>
                   <td>{auditoria.tabla}</td>
-                  <td>{auditoria.operacion}</td>
+                  <td>{auditoria.id_afectado || auditoria.idAfectado || "-"}</td>
+                  <td>{mostrarOperacion(auditoria.operacion)}</td>
                   <td>{auditoria.fecha_cambio || auditoria.fechaCambio}</td>
                   <td>{auditoria.registrado_por || auditoria.registradoPor}</td>
+                  <td>
+                    {obtenerValor(
+                      auditoria,
+                      "datos_relevantes",
+                      "datosRelevantes",
+                      "detalle"
+                    ) || "-"}
+                  </td>
                 </tr>
               ))}
+
+              {auditorias.length === 0 && (
+                <tr>
+                  <td colSpan="6">No hay registros de auditoría.</td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="admin-table-section">
+        <div className="admin-section-header">
+          <div>
+            <h2>Reportes generales</h2>
+            <p>Indicadores del sistema consultados desde vistas de PostgreSQL.</p>
+          </div>
+
+          <button type="button" onClick={actualizarReportes}>
+            Refrescar reportes
+          </button>
+        </div>
+
+        <div className="admin-report-grid">
+          <div className="admin-report-card">
+            <h3>Ventas por producto</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Unidades</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventasProductos.slice(0, 5).map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.producto}</td>
+                    <td>{item.unidades_vendidas}</td>
+                    <td>${Number(item.total_generado || 0).toLocaleString("es-CO")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admin-report-card">
+            <h3>Ventas por periodo</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Ventas</th>
+                  <th>Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventasPeriodo.slice(0, 5).map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.fecha}</td>
+                    <td>{item.total_ventas}</td>
+                    <td>${Number(item.monto_total || 0).toLocaleString("es-CO")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admin-report-card">
+            <h3>Ventas por método de pago</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Método</th>
+                  <th>Cantidad</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventasMetodoPago.map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.metodo_pago}</td>
+                    <td>{item.cantidad_pagos}</td>
+                    <td>${Number(item.total_pagado || 0).toLocaleString("es-CO")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admin-report-card">
+            <h3>Productos bajo stock</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Talla</th>
+                  <th>Color</th>
+                  <th>Stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productosBajoStock.slice(0, 8).map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.producto}</td>
+                    <td>{item.talla}</td>
+                    <td>{item.color}</td>
+                    <td>{item.stock}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admin-report-card">
+            <h3>Usuarios por rol</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Rol</th>
+                  <th>Total</th>
+                  <th>Activos</th>
+                  <th>Inactivos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usuariosPorRol.map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.rol}</td>
+                    <td>{item.total_usuarios}</td>
+                    <td>{item.usuarios_activos}</td>
+                    <td>{item.usuarios_inactivos}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admin-report-card">
+            <h3>Clientes con más compras</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Compras</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientesCompras.slice(0, 5).map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.cliente}</td>
+                    <td>{item.total_compras}</td>
+                    <td>${Number(item.total_pagado || 0).toLocaleString("es-CO")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="admin-report-card">
+            <h3>Top productos</h3>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Unidades</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topProductos.slice(0, 5).map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.producto}</td>
+                    <td>{item.unidades_vendidas}</td>
+                    <td>${Number(item.total_generado || 0).toLocaleString("es-CO")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>

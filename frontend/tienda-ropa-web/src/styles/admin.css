@@ -599,3 +599,27 @@
   background: #111111;
   color: #ffffff;
 }
+
+/* =========================================================
+   REPORTES SUPERADMINISTRADOR
+   ========================================================= */
+
+.admin-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.admin-report-card {
+  padding: 24px;
+}
+
+.admin-report-card h3 {
+  margin: 0 0 14px;
+  color: #4b3528;
+  font-size: 20px;
+}
+
+.admin-report-card .admin-table {
+  min-width: 100%;
+}

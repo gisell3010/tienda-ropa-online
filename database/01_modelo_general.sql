@@ -1,5 +1,5 @@
 -- =========================================
-CREACIÓN DE BASE DE DATOS
+-- CREACIÓN DE BASE DE DATOS
 -- =========================================
 
 CREATE DATABASE tienda_ropa_online;

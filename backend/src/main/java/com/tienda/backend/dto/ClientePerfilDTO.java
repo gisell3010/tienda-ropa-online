@@ -1,22 +1,37 @@
 package com.tienda.backend.dto;
 
+import java.time.LocalDate;
+
 public class ClientePerfilDTO {
 
     private Long clienteId;
     private String nombre;
     private String telefono;
     private String correo;
+    private String genero;
+    private LocalDate fechaNacimiento;
     private String rol;
     private boolean activo;
 
     public ClientePerfilDTO() {
     }
 
-    public ClientePerfilDTO(Long clienteId, String nombre, String telefono, String correo, String rol, boolean activo) {
+    public ClientePerfilDTO(
+            Long clienteId,
+            String nombre,
+            String telefono,
+            String correo,
+            String genero,
+            LocalDate fechaNacimiento,
+            String rol,
+            boolean activo
+    ) {
         this.clienteId = clienteId;
         this.nombre = nombre;
         this.telefono = telefono;
         this.correo = correo;
+        this.genero = genero;
+        this.fechaNacimiento = fechaNacimiento;
         this.rol = rol;
         this.activo = activo;
     }
@@ -51,6 +66,22 @@ public class ClientePerfilDTO {
 
     public void setCorreo(String correo) {
         this.correo = correo;
+    }
+
+    public String getGenero() {
+        return genero;
+    }
+
+    public void setGenero(String genero) {
+        this.genero = genero;
+    }
+
+    public LocalDate getFechaNacimiento() {
+        return fechaNacimiento;
+    }
+
+    public void setFechaNacimiento(LocalDate fechaNacimiento) {
+        this.fechaNacimiento = fechaNacimiento;
     }
 
     public String getRol() {

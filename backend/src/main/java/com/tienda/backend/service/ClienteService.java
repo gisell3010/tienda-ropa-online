@@ -5,8 +5,6 @@ import com.tienda.backend.dto.DetallePedidoClienteDTO;
 import com.tienda.backend.dto.DireccionClienteDTO;
 import com.tienda.backend.dto.PedidoClienteDTO;
 import com.tienda.backend.dto.PedidoDetalleResponseDTO;
-import com.tienda.backend.model.Persona;
-import com.tienda.backend.repository.PersonaRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -15,6 +13,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,42 +22,95 @@ import java.util.List;
 @Service
 public class ClienteService {
 
-    private final PersonaRepository personaRepository;
-
     @PersistenceContext
     private EntityManager entityManager;
 
-    public ClienteService(PersonaRepository personaRepository) {
-        this.personaRepository = personaRepository;
-    }
-
     public ClientePerfilDTO obtenerPerfil(Long clienteId) {
-        Persona persona = personaRepository.findById(clienteId.intValue())
-                .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado"));
+        Query query = entityManager.createNativeQuery("""
+                SELECT
+                    per_id,
+                    nombre,
+                    telefono,
+                    correo,
+                    genero,
+                    fecha_nacimiento,
+                    rol,
+                    activo
+                FROM vw_perfil_cliente
+                WHERE per_id = :clienteId
+                """);
+
+        query.setParameter("clienteId", clienteId.intValue());
+
+        List<Object[]> filas = query.getResultList();
+
+        if (filas.isEmpty()) {
+            throw new IllegalArgumentException("Cliente no encontrado");
+        }
+
+        Object[] fila = filas.get(0);
 
         return new ClientePerfilDTO(
-                persona.getPerId().longValue(),
-                persona.getNombre(),
-                persona.getTelefono(),
-                persona.getCorreo(),
-                persona.getRol().getNombre(),
-                Boolean.TRUE.equals(persona.getActivo())
+                ((Number) fila[0]).longValue(),
+                (String) fila[1],
+                (String) fila[2],
+                (String) fila[3],
+                fila[4] == null ? null : fila[4].toString(),
+                convertirLocalDate(fila[5]),
+                (String) fila[6],
+                Boolean.TRUE.equals(fila[7])
         );
+    }
+
+    @Transactional
+    public ClientePerfilDTO actualizarPerfil(Long clienteId, ClientePerfilDTO request) {
+        Query query = entityManager.createNativeQuery("""
+                CALL actualizar_perfil_cliente(
+                    :clienteId,
+                    :nombre,
+                    :telefono,
+                    :genero,
+                    :fechaNacimiento
+                )
+                """);
+
+        query.setParameter("clienteId", clienteId.intValue());
+        query.setParameter("nombre", request.getNombre());
+        query.setParameter("telefono", request.getTelefono());
+        query.setParameter("genero", request.getGenero());
+        query.setParameter("fechaNacimiento", request.getFechaNacimiento());
+
+        query.executeUpdate();
+
+        return obtenerPerfil(clienteId);
     }
 
     public List<DireccionClienteDTO> listarDirecciones(Long clienteId) {
         Query query = entityManager.createNativeQuery("""
                 SELECT
-                    d.dir_id,
-                    d.linea,
-                    m.nombre AS municipio,
-                    dep.nombre AS departamento
-                FROM personas_direcciones pd
-                INNER JOIN direcciones d ON d.dir_id = pd.dir_id
-                INNER JOIN municipios m ON m.mun_id = d.mun_id
-                INNER JOIN departamentos dep ON dep.dep_id = m.dep_id
-                WHERE pd.per_id = :clienteId
-                ORDER BY d.dir_id
+                    dir_id,
+                    linea,
+                    mun_id,
+                    municipio,
+                    dep_id,
+                    departamento
+                FROM (
+                    SELECT
+                        dir_id,
+                        linea,
+                        mun_id,
+                        municipio,
+                        dep_id,
+                        departamento,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY mun_id, LOWER(TRIM(linea))
+                            ORDER BY dir_id DESC
+                        ) AS numero
+                    FROM vw_direcciones_cliente
+                    WHERE per_id = :clienteId
+                ) direcciones_cliente
+                WHERE numero = 1
+                ORDER BY dir_id DESC
                 """);
 
         query.setParameter("clienteId", clienteId.intValue());
@@ -66,14 +119,7 @@ public class ClienteService {
         List<DireccionClienteDTO> direcciones = new ArrayList<>();
 
         for (Object[] fila : filas) {
-            direcciones.add(new DireccionClienteDTO(
-                    ((Number) fila[0]).longValue(),
-                    (String) fila[1],
-                    (String) fila[2],
-                    (String) fila[3],
-                    "",
-                    false
-            ));
+            direcciones.add(mapearDireccion(fila));
         }
 
         return direcciones;
@@ -81,69 +127,42 @@ public class ClienteService {
 
     @Transactional
     public DireccionClienteDTO registrarDireccion(Long clienteId, DireccionClienteDTO request) {
-        String munId = obtenerMunicipioId(request.getMunicipio(), request.getDepartamento());
+        String municipioId = obtenerMunicipioId(request);
 
-        Query insertarDireccion = entityManager.createNativeQuery("""
-                INSERT INTO direcciones (mun_id, linea)
-                VALUES (:munId, :linea)
-                RETURNING dir_id
+        Query query = entityManager.createNativeQuery("""
+                CALL registrar_direccion_cliente(
+                    :clienteId,
+                    :municipioId,
+                    :linea
+                )
                 """);
 
-        insertarDireccion.setParameter("munId", munId);
-        insertarDireccion.setParameter("linea", request.getDireccion());
+        query.setParameter("clienteId", clienteId.intValue());
+        query.setParameter("municipioId", municipioId);
+        query.setParameter("linea", request.getDireccion());
 
-        Number dirId = (Number) insertarDireccion.getSingleResult();
+        query.executeUpdate();
 
-        Query relacion = entityManager.createNativeQuery("""
-                INSERT INTO personas_direcciones (per_id, dir_id)
-                VALUES (:perId, :dirId)
-                ON CONFLICT (per_id, dir_id) DO NOTHING
-                """);
-
-        relacion.setParameter("perId", clienteId.intValue());
-        relacion.setParameter("dirId", dirId.intValue());
-        relacion.executeUpdate();
-
-        request.setDireccionId(dirId.longValue());
-
-        return request;
+        return obtenerDireccionRegistrada(
+                clienteId,
+                municipioId,
+                request.getDireccion()
+        );
     }
 
     @Transactional
-    public DireccionClienteDTO actualizarDireccion(Long clienteId, Long direccionId, DireccionClienteDTO request) {
-        String munId = obtenerMunicipioId(request.getMunicipio(), request.getDepartamento());
-
-        Query validarRelacion = entityManager.createNativeQuery("""
-                SELECT COUNT(*)
-                FROM personas_direcciones
-                WHERE per_id = :perId
-                  AND dir_id = :dirId
+    public void eliminarDireccion(Long clienteId, Long direccionId) {
+        Query query = entityManager.createNativeQuery("""
+                CALL eliminar_direccion_cliente(
+                    :clienteId,
+                    :direccionId
+                )
                 """);
 
-        validarRelacion.setParameter("perId", clienteId.intValue());
-        validarRelacion.setParameter("dirId", direccionId.intValue());
+        query.setParameter("clienteId", clienteId.intValue());
+        query.setParameter("direccionId", direccionId.intValue());
 
-        Number total = (Number) validarRelacion.getSingleResult();
-
-        if (total.intValue() == 0) {
-            throw new IllegalArgumentException("La dirección no pertenece al cliente");
-        }
-
-        Query actualizarDireccion = entityManager.createNativeQuery("""
-                UPDATE direcciones
-                SET mun_id = :munId,
-                    linea = :linea
-                WHERE dir_id = :dirId
-                """);
-
-        actualizarDireccion.setParameter("munId", munId);
-        actualizarDireccion.setParameter("linea", request.getDireccion());
-        actualizarDireccion.setParameter("dirId", direccionId.intValue());
-        actualizarDireccion.executeUpdate();
-
-        request.setDireccionId(direccionId);
-
-        return request;
+        query.executeUpdate();
     }
 
     public List<PedidoClienteDTO> listarPedidos(Long clienteId) {
@@ -231,18 +250,77 @@ public class ClienteService {
         );
     }
 
-    private String obtenerMunicipioId(String municipio, String departamento) {
+    private DireccionClienteDTO obtenerDireccionRegistrada(
+            Long clienteId,
+            String municipioId,
+            String direccion
+    ) {
+        Query query = entityManager.createNativeQuery("""
+                SELECT
+                    dir_id,
+                    linea,
+                    mun_id,
+                    municipio,
+                    dep_id,
+                    departamento
+                FROM vw_direcciones_cliente
+                WHERE per_id = :clienteId
+                  AND mun_id = :municipioId
+                  AND LOWER(TRIM(linea)) = LOWER(TRIM(:direccion))
+                ORDER BY dir_id DESC
+                LIMIT 1
+                """);
+
+        query.setParameter("clienteId", clienteId.intValue());
+        query.setParameter("municipioId", municipioId);
+        query.setParameter("direccion", direccion);
+
+        List<Object[]> filas = query.getResultList();
+
+        if (filas.isEmpty()) {
+            throw new IllegalArgumentException("La dirección fue registrada, pero no se pudo consultar");
+        }
+
+        return mapearDireccion(filas.get(0));
+    }
+
+    private DireccionClienteDTO mapearDireccion(Object[] fila) {
+        return new DireccionClienteDTO(
+                ((Number) fila[0]).longValue(),
+                (String) fila[1],
+                (String) fila[2],
+                (String) fila[3],
+                (String) fila[4],
+                (String) fila[5],
+                "",
+                false
+        );
+    }
+
+    private String obtenerMunicipioId(DireccionClienteDTO request) {
+        if (request.getMunicipioId() != null && !request.getMunicipioId().isBlank()) {
+            return request.getMunicipioId();
+        }
+
+        if (request.getMunicipio() == null || request.getMunicipio().isBlank()) {
+            throw new IllegalArgumentException("Debe indicar el municipio");
+        }
+
+        if (request.getDepartamento() == null || request.getDepartamento().isBlank()) {
+            throw new IllegalArgumentException("Debe indicar el departamento");
+        }
+
         Query query = entityManager.createNativeQuery("""
                 SELECT m.mun_id
-                FROM municipios m
-                INNER JOIN departamentos d ON d.dep_id = m.dep_id
+                FROM vw_municipios m
+                INNER JOIN vw_departamentos d ON d.dep_id = m.dep_id
                 WHERE LOWER(m.nombre) = LOWER(:municipio)
                   AND LOWER(d.nombre) = LOWER(:departamento)
                 LIMIT 1
                 """);
 
-        query.setParameter("municipio", municipio);
-        query.setParameter("departamento", departamento);
+        query.setParameter("municipio", request.getMunicipio());
+        query.setParameter("departamento", request.getDepartamento());
 
         List<?> resultados = query.getResultList();
 
@@ -254,7 +332,7 @@ public class ClienteService {
     }
 
     private LocalDateTime convertirFecha(Object valor) {
-        if (valor instanceof java.sql.Timestamp timestamp) {
+        if (valor instanceof Timestamp timestamp) {
             return timestamp.toLocalDateTime();
         }
 
@@ -262,7 +340,23 @@ public class ClienteService {
             return date.toLocalDate().atStartOfDay();
         }
 
-        return LocalDateTime.now();
+        return null;
+    }
+
+    private LocalDate convertirLocalDate(Object valor) {
+        if (valor instanceof Date date) {
+            return date.toLocalDate();
+        }
+
+        if (valor instanceof Timestamp timestamp) {
+            return timestamp.toLocalDateTime().toLocalDate();
+        }
+
+        if (valor instanceof LocalDate localDate) {
+            return localDate;
+        }
+
+        return null;
     }
 
     private BigDecimal convertirBigDecimal(Object valor) {

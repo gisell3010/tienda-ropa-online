@@ -1,18 +1,14 @@
 package com.tienda.backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 public class DireccionClienteDTO {
 
     private Long direccionId;
-
-    @NotBlank(message = "La dirección es obligatoria")
     private String direccion;
 
-    @NotBlank(message = "El municipio es obligatorio")
+    private String municipioId;
     private String municipio;
 
-    @NotBlank(message = "El departamento es obligatorio")
+    private String departamentoId;
     private String departamento;
 
     private String referencia;
@@ -21,11 +17,21 @@ public class DireccionClienteDTO {
     public DireccionClienteDTO() {
     }
 
-    public DireccionClienteDTO(Long direccionId, String direccion, String municipio, String departamento,
-                               String referencia, boolean principal) {
+    public DireccionClienteDTO(
+            Long direccionId,
+            String direccion,
+            String municipioId,
+            String municipio,
+            String departamentoId,
+            String departamento,
+            String referencia,
+            boolean principal
+    ) {
         this.direccionId = direccionId;
         this.direccion = direccion;
+        this.municipioId = municipioId;
         this.municipio = municipio;
+        this.departamentoId = departamentoId;
         this.departamento = departamento;
         this.referencia = referencia;
         this.principal = principal;
@@ -47,12 +53,28 @@ public class DireccionClienteDTO {
         this.direccion = direccion;
     }
 
+    public String getMunicipioId() {
+        return municipioId;
+    }
+
+    public void setMunicipioId(String municipioId) {
+        this.municipioId = municipioId;
+    }
+
     public String getMunicipio() {
         return municipio;
     }
 
     public void setMunicipio(String municipio) {
         this.municipio = municipio;
+    }
+
+    public String getDepartamentoId() {
+        return departamentoId;
+    }
+
+    public void setDepartamentoId(String departamentoId) {
+        this.departamentoId = departamentoId;
     }
 
     public String getDepartamento() {

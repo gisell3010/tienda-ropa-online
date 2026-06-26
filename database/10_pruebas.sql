@@ -156,6 +156,7 @@ END;
 $$;
 
 -- 7. Venta de prueba
+-- 7. Venta de prueba
 DO $$
 DECLARE
     v_per_id INT;
@@ -164,6 +165,7 @@ DECLARE
     v_inv_j INT;
     v_mun_id CHAR(5);
     v_dir_id INT;
+    v_venta_id INT;
 BEGIN
     SELECT per_id INTO v_per_id
     FROM personas
@@ -185,13 +187,17 @@ BEGIN
         LIMIT 1;
     END IF;
 
-    INSERT INTO direcciones (mun_id, linea)
-    VALUES (v_mun_id, 'Carrera 20 No. 11-78')
-    RETURNING dir_id INTO v_dir_id;
+    CALL registrar_direccion_cliente(
+        v_per_id,
+        v_mun_id,
+        'Carrera 20 No. 11-78'
+    );
 
-    INSERT INTO personas_direcciones (per_id, dir_id)
-    VALUES (v_per_id, v_dir_id)
-    ON CONFLICT (per_id, dir_id) DO NOTHING;
+    SELECT dir_id INTO v_dir_id
+    FROM vw_direcciones_cliente
+    WHERE per_id = v_per_id
+      AND linea = 'Carrera 20 No. 11-78'
+    LIMIT 1;
 
     SELECT i.inv_id INTO v_inv_c
     FROM inventarios i
@@ -205,7 +211,7 @@ BEGIN
     WHERE p.nombre = 'Jean clásico prueba actualizado'
     LIMIT 1;
 
-    PERFORM realizar_compra_carrito(
+    SELECT realizar_compra_carrito(
         v_per_id,
         v_met_id,
         v_dir_id,
@@ -213,7 +219,10 @@ BEGIN
             jsonb_build_object('inv_id', v_inv_c, 'cantidad', 2),
             jsonb_build_object('inv_id', v_inv_j, 'cantidad', 1)
         )
-    );
+    )
+    INTO v_venta_id;
+
+    RAISE NOTICE 'Venta registrada con ID: %', v_venta_id;
 END;
 $$;
 
@@ -226,6 +235,13 @@ SELECT fn_validar_telefono('3124567890');
 SELECT fn_validar_stock(0);
 SELECT fn_estado_producto(0);
 SELECT fn_estado_producto(10);
+SELECT fn_es_cliente_activo(
+    (SELECT per_id FROM personas WHERE correo = 'cliente.prueba@gmail.com')
+);
+
+SELECT fn_total_compras_cliente(
+    (SELECT per_id FROM personas WHERE correo = 'cliente.prueba@gmail.com')
+);
 
 -- =========================================================
 -- LLAMADOS A VISTAS PRINCIPALES
@@ -239,6 +255,8 @@ SELECT * FROM vw_pedidos_cliente;
 SELECT * FROM vw_detalle_pedido_cliente;
 SELECT * FROM vw_usuarios_sistema;
 SELECT * FROM vw_auditoria_general;
+SELECT * FROM vw_perfil_cliente;
+SELECT * FROM vw_direcciones_cliente;
 
 -- =========================================================
 -- LLAMADOS A VISTAS PARAMÉTRICAS
@@ -249,12 +267,61 @@ SELECT * FROM vw_estilos;
 SELECT * FROM vw_tallas;
 SELECT * FROM vw_colores;
 SELECT * FROM vw_metodos_pago;
-
+SELECT * FROM vw_departamentos;
+SELECT * FROM vw_municipios LIMIT 20;
 -- =========================================================
 -- REFRESCAR Y CONSULTAR VISTA MATERIALIZADA
 -- =========================================================
 
 REFRESH MATERIALIZED VIEW mv_resumen_ventas_productos;
 SELECT * FROM mv_resumen_ventas_productos;
+
+
+
+-- =========================================================
+-- PRUEBAS CLIENTE: PERFIL Y DIRECCIONES
+-- =========================================================
+
+DO $$
+DECLARE
+    v_per_id INT;
+    v_mun_id CHAR(5);
+BEGIN
+    SELECT per_id INTO v_per_id
+    FROM personas
+    WHERE correo = 'cliente.prueba@gmail.com';
+
+    SELECT mun_id INTO v_mun_id
+    FROM municipios
+    WHERE nombre = 'PAMPLONA'
+      AND dep_id = '54'
+    LIMIT 1;
+
+    IF v_mun_id IS NULL THEN
+        SELECT mun_id INTO v_mun_id
+        FROM municipios
+        LIMIT 1;
+    END IF;
+
+    CALL actualizar_perfil_cliente(
+        v_per_id,
+        'Cliente Prueba Actualizado',
+        '3124567890',
+        'M',
+        '2000-05-10'
+    );
+
+    CALL registrar_direccion_cliente(
+        v_per_id,
+        v_mun_id,
+        'Carrera 20 No. 11-78'
+    );
+END;
+$$;
+
+
+
+
+
 
 ROLLBACK;

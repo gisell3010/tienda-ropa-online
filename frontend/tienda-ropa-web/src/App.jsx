@@ -5,6 +5,8 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ClientePerfilPage from "./pages/ClientePerfilPage";
+import ClientePedidosPage from "./pages/ClientePedidosPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import SuperAdminDashboardPage from "./pages/SuperAdminDashboardPage";
 import { useCart } from "./context/CartContext";
@@ -16,6 +18,7 @@ import "./styles/cart.css";
 import "./styles/checkout.css";
 import "./styles/auth.css";
 import "./styles/admin.css";
+import "./styles/cliente.css";
 
 function App() {
   const [vistaActual, setVistaActual] = useState("login");
@@ -41,6 +44,14 @@ function App() {
 
   const irACheckout = () => {
     setVistaActual("checkout");
+  };
+
+  const irAPerfilCliente = () => {
+    setVistaActual("perfilCliente");
+  };
+
+  const irAPedidosCliente = () => {
+    setVistaActual("pedidosCliente");
   };
 
   const cerrarSesionUsuario = () => {
@@ -177,17 +188,20 @@ function App() {
 
   return (
     <>
-      {["catalogo", "carrito", "checkout"].includes(vistaActual) &&
-  usuarioPuedeEntrar(["CLIENTE"]) && (
-    <Navbar
-      irACatalogo={irACatalogo}
-      irACarrito={irACarrito}
-      irALogin={irALogin}
-      cerrarSesionUsuario={cerrarSesionUsuario}
-      usuario={usuario}
-      rolUsuario={rolUsuario}
-    />
-  )}
+      {["catalogo", "carrito", "checkout", "perfilCliente", "pedidosCliente"].includes(
+        vistaActual
+      ) &&
+        usuarioPuedeEntrar(["CLIENTE"]) && (
+          <Navbar
+            irACatalogo={irACatalogo}
+            irACarrito={irACarrito}
+            irAPerfilCliente={irAPerfilCliente}
+            irAPedidosCliente={irAPedidosCliente}
+            cerrarSesionUsuario={cerrarSesionUsuario}
+            usuario={usuario}
+            vistaActual={vistaActual}
+          />
+        )}
 
       {notificacion.mensaje && (
         <div style={estiloOverlay}>
@@ -215,6 +229,14 @@ function App() {
 
       {vistaActual === "checkout" && usuarioPuedeEntrar(["CLIENTE"]) && (
         <CheckoutPage irACarrito={irACarrito} irACatalogo={irACatalogo} />
+      )}
+
+      {vistaActual === "perfilCliente" && usuarioPuedeEntrar(["CLIENTE"]) && (
+        <ClientePerfilPage />
+      )}
+
+      {vistaActual === "pedidosCliente" && usuarioPuedeEntrar(["CLIENTE"]) && (
+        <ClientePedidosPage />
       )}
 
       {vistaActual === "admin" && usuarioPuedeEntrar(["ADMIN"]) && (

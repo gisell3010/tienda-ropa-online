@@ -2,68 +2,97 @@ package com.tienda.backend.service;
 
 import com.tienda.backend.dto.InventarioDTO;
 import com.tienda.backend.dto.ProductoDTO;
-import com.tienda.backend.model.Inventario;
-import com.tienda.backend.model.Producto;
-import com.tienda.backend.repository.InventarioRepository;
-import com.tienda.backend.repository.ProductoRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 public class ProductoService {
 
-    private final ProductoRepository productoRepository;
-    private final InventarioRepository inventarioRepository;
-
-    public ProductoService(ProductoRepository productoRepository, InventarioRepository inventarioRepository) {
-        this.productoRepository = productoRepository;
-        this.inventarioRepository = inventarioRepository;
-    }
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public List<ProductoDTO> obtenerCatalogo() {
-        List<Producto> productos = productoRepository.findByActivoTrue();
+        Query query = entityManager.createNativeQuery("""
+                SELECT
+                    pro_id,
+                    producto,
+                    precio,
+                    imagen_url,
+                    categoria,
+                    estilo,
+                    inv_id,
+                    talla,
+                    color,
+                    stock
+                FROM vw_catalogo_productos_detalle
+                ORDER BY producto, talla, color
+                """);
 
-        return productos.stream()
-                .map(this::convertirADto)
-                .collect(Collectors.toList());
-    }
+        List<Object[]> filas = query.getResultList();
 
-    private ProductoDTO convertirADto(Producto producto) {
-        ProductoDTO dto = new ProductoDTO();
+        Map<Integer, ProductoDTO> productos = new LinkedHashMap<>();
+        Map<Integer, Integer> stockPorProducto = new LinkedHashMap<>();
 
-        dto.setId(producto.getProId());
-        dto.setNombre(producto.getNombre());
-        dto.setDescripcion(producto.getDescripcion());
-        dto.setPrecio(producto.getPrecio());
-        dto.setImagenUrl(producto.getImagenUrl());
-        dto.setCategoria(producto.getCategoria().getNombre());
-        dto.setEstilo(producto.getEstilo().getNombre());
+        for (Object[] fila : filas) {
+            Integer productoId = ((Number) fila[0]).intValue();
 
-        List<Inventario> inventarios = inventarioRepository.findByProducto(producto);
+            ProductoDTO producto = productos.computeIfAbsent(productoId, id -> {
+                ProductoDTO dto = new ProductoDTO();
 
-        List<InventarioDTO> existenciasDto = new ArrayList<>();
-        int stockTotal = 0;
+                dto.setId(productoId);
+                dto.setNombre((String) fila[1]);
+                dto.setDescripcion(null);
+                dto.setPrecio(convertirDouble(fila[2]));
+                dto.setImagenUrl((String) fila[3]);
+                dto.setCategoria((String) fila[4]);
+                dto.setEstilo((String) fila[5]);
+                dto.setExistencias(new ArrayList<>());
+                dto.setAgotado(true);
 
-        for (Inventario inv : inventarios) {
-            InventarioDTO invDto = new InventarioDTO(
-                    inv.getInvId(),
-                    inv.getTalla().getTalId(),
-                    inv.getTalla().getNombre(),
-                    inv.getColor().getColId(),
-                    inv.getColor().getNombre(),
-                    inv.getStock()
+                return dto;
+            });
+
+            Integer stock = ((Number) fila[9]).intValue();
+
+            producto.getExistencias().add(new InventarioDTO(
+                    ((Number) fila[6]).intValue(),
+                    null,
+                    (String) fila[7],
+                    null,
+                    (String) fila[8],
+                    stock
+            ));
+
+            stockPorProducto.put(
+                    productoId,
+                    stockPorProducto.getOrDefault(productoId, 0) + stock
             );
-
-            existenciasDto.add(invDto);
-            stockTotal += inv.getStock();
         }
 
-        dto.setExistencias(existenciasDto);
-        dto.setAgotado(stockTotal == 0);
+        for (ProductoDTO producto : productos.values()) {
+            producto.setAgotado(stockPorProducto.getOrDefault(producto.getId(), 0) <= 0);
+        }
 
-        return dto;
+        return new ArrayList<>(productos.values());
+    }
+
+    private Double convertirDouble(Object valor) {
+        if (valor instanceof BigDecimal bigDecimal) {
+            return bigDecimal.doubleValue();
+        }
+
+        if (valor instanceof Number number) {
+            return number.doubleValue();
+        }
+
+        return 0.0;
     }
 }

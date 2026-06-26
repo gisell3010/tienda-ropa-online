@@ -30,10 +30,15 @@ GRANT rol_admin TO rol_superadmin;
 -- PERMISOS CLIENTE
 -- Consulta catálogo, datos paramétricos y compra controlada
 -- =========================================================
-
+-- =========================================================
+-- PERMISOS CLIENTE
+-- Consulta por vistas y acciones controladas por procedimientos/funciones
+-- =========================================================
 GRANT SELECT ON
     vw_catalogo_productos,
     vw_catalogo_productos_detalle,
+    vw_perfil_cliente,
+    vw_direcciones_cliente,
     vw_pedidos_cliente,
     vw_detalle_pedido_cliente,
     vw_categorias,
@@ -41,10 +46,10 @@ GRANT SELECT ON
     vw_tallas,
     vw_colores,
     vw_metodos_pago,
-    metodos_pago,
-    departamentos,
-    municipios
+    vw_departamentos,
+    vw_municipios
 TO rol_cliente;
+
 
 GRANT EXECUTE ON PROCEDURE registrar_cliente(
     VARCHAR,
@@ -55,17 +60,45 @@ GRANT EXECUTE ON PROCEDURE registrar_cliente(
     DATE
 ) TO rol_cliente;
 
+
+GRANT EXECUTE ON PROCEDURE actualizar_perfil_cliente(
+    INT,
+    VARCHAR,
+    VARCHAR,
+    CHAR,
+    DATE
+) TO rol_cliente;
+
+
+GRANT EXECUTE ON PROCEDURE registrar_direccion_cliente(
+    INT,
+    CHAR(5),
+    VARCHAR
+) TO rol_cliente;
+
+
+GRANT EXECUTE ON PROCEDURE eliminar_direccion_cliente(
+    INT,
+    INT
+) TO rol_cliente;
+
+
+GRANT EXECUTE ON FUNCTION fn_es_cliente_activo(
+    INT
+) TO rol_cliente;
+
+
+GRANT EXECUTE ON FUNCTION fn_total_compras_cliente(
+    INT
+) TO rol_cliente;
+
+
 GRANT EXECUTE ON FUNCTION realizar_compra_carrito(
     INT,
     INT,
     INT,
     JSONB
 ) TO rol_cliente;
-
-GRANT SELECT, INSERT ON
-    direcciones,
-    personas_direcciones
-TO rol_cliente;
 
 -- =========================================================
 -- PERMISOS ADMIN

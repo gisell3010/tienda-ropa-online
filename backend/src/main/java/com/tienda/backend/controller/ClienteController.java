@@ -18,7 +18,10 @@ public class ClienteController {
     private final ClienteService clienteService;
     private final AuthTokenService authTokenService;
 
-    public ClienteController(ClienteService clienteService, AuthTokenService authTokenService) {
+    public ClienteController(
+            ClienteService clienteService,
+            AuthTokenService authTokenService
+    ) {
         this.clienteService = clienteService;
         this.authTokenService = authTokenService;
     }
@@ -29,6 +32,15 @@ public class ClienteController {
     ) {
         Long clienteId = obtenerClienteId(authorizationHeader);
         return clienteService.obtenerPerfil(clienteId);
+    }
+
+    @PutMapping("/perfil")
+    public ClientePerfilDTO actualizarPerfil(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @Valid @RequestBody ClientePerfilDTO request
+    ) {
+        Long clienteId = obtenerClienteId(authorizationHeader);
+        return clienteService.actualizarPerfil(clienteId, request);
     }
 
     @GetMapping("/direcciones")
@@ -48,14 +60,13 @@ public class ClienteController {
         return clienteService.registrarDireccion(clienteId, request);
     }
 
-    @PutMapping("/direcciones/{direccionId}")
-    public DireccionClienteDTO actualizarDireccion(
+    @DeleteMapping("/direcciones/{direccionId}")
+    public void eliminarDireccion(
             @RequestHeader("Authorization") String authorizationHeader,
-            @PathVariable Long direccionId,
-            @Valid @RequestBody DireccionClienteDTO request
+            @PathVariable Long direccionId
     ) {
         Long clienteId = obtenerClienteId(authorizationHeader);
-        return clienteService.actualizarDireccion(clienteId, direccionId, request);
+        clienteService.eliminarDireccion(clienteId, direccionId);
     }
 
     @GetMapping("/pedidos")

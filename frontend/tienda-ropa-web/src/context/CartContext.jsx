@@ -184,13 +184,9 @@ export function CartProvider({ children }) {
     setCarrito([]);
   };
 
-  const subtotalGeneral = useMemo(() => {
+  const totalCompra = useMemo(() => {
     return carrito.reduce((total, item) => total + item.subtotal, 0);
   }, [carrito]);
-
-  const costoEnvio = carrito.length > 0 ? 10000 : 0;
-
-  const totalCompra = subtotalGeneral + costoEnvio;
 
   const cantidadTotalProductos = useMemo(() => {
     return carrito.reduce((total, item) => total + item.cantidad, 0);
@@ -203,8 +199,6 @@ export function CartProvider({ children }) {
     disminuirCantidad,
     eliminarProducto,
     vaciarCarrito,
-    subtotalGeneral,
-    costoEnvio,
     totalCompra,
     cantidadTotalProductos,
     notificacion,

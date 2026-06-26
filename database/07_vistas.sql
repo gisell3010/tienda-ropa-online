@@ -3,6 +3,246 @@
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 
+
+
+-- =========================================================
+-- VISTAS DEL CLIENTE
+-- =========================================================
+CREATE OR REPLACE VIEW vw_catalogo_productos_detalle AS
+SELECT
+    p.pro_id,
+    p.nombre AS producto,
+    p.precio,
+    p.imagen_url,
+    p.activo,
+    c.nombre AS categoria,
+    e.nombre AS estilo,
+    i.inv_id,
+    t.nombre AS talla,
+    co.nombre AS color,
+    i.stock,
+    fn_estado_producto(i.stock) AS estado_producto,
+    CASE WHEN i.stock <= 0 THEN FALSE ELSE TRUE END AS permite_interaccion
+FROM productos p
+INNER JOIN categorias c ON c.cat_id = p.cat_id
+INNER JOIN estilos e ON e.est_id = p.est_id
+INNER JOIN inventarios i ON i.pro_id = p.pro_id
+INNER JOIN tallas t ON t.tal_id = i.tal_id
+INNER JOIN colores co ON co.col_id = i.col_id
+WHERE p.activo = TRUE;
+
+
+CREATE OR REPLACE VIEW vw_catalogo_productos AS
+SELECT
+    p.pro_id,
+    p.nombre AS producto,
+    p.precio,
+    p.imagen_url,
+    p.activo,
+    c.nombre AS categoria,
+    e.nombre AS estilo,
+    COALESCE(SUM(i.stock), 0) AS stock_total,
+    COALESCE(
+        STRING_AGG(DISTINCT t.nombre, ', ') FILTER (WHERE i.stock > 0),
+        'Sin tallas disponibles'
+    ) AS tallas_disponibles,
+    COALESCE(
+        STRING_AGG(DISTINCT co.nombre, ', ') FILTER (WHERE i.stock > 0),
+        'Sin colores disponibles'
+    ) AS colores_disponibles,
+    fn_estado_producto(COALESCE(SUM(i.stock), 0)::INT) AS estado_producto,
+    CASE WHEN COALESCE(SUM(i.stock), 0) <= 0 THEN FALSE ELSE TRUE END AS permite_interaccion
+FROM productos p
+INNER JOIN categorias c ON c.cat_id = p.cat_id
+INNER JOIN estilos e ON e.est_id = p.est_id
+LEFT JOIN inventarios i ON i.pro_id = p.pro_id
+LEFT JOIN tallas t ON t.tal_id = i.tal_id
+LEFT JOIN colores co ON co.col_id = i.col_id
+WHERE p.activo = TRUE
+GROUP BY
+    p.pro_id,
+    p.nombre,
+    p.precio,
+    p.imagen_url,
+    p.activo,
+    c.nombre,
+    e.nombre;
+
+
+CREATE OR REPLACE VIEW vw_perfil_cliente AS
+SELECT
+    p.per_id,
+    p.nombre,
+    p.telefono,
+    p.correo,
+    p.genero,
+    p.fecha_nacimiento,
+    p.activo,
+    r.nombre AS rol
+FROM personas p
+INNER JOIN roles r ON r.rol_id = p.rol_id
+WHERE r.nombre = 'CLIENTE';
+
+
+CREATE OR REPLACE VIEW vw_direcciones_cliente AS
+SELECT DISTINCT ON (
+    p.per_id,
+    d.mun_id,
+    LOWER(TRIM(d.linea))
+)
+    pd.pdi_id,
+    p.per_id,
+    p.nombre AS cliente,
+    d.dir_id,
+    d.linea,
+    m.mun_id,
+    m.nombre AS municipio,
+    dep.dep_id,
+    dep.nombre AS departamento
+FROM personas_direcciones pd
+INNER JOIN personas p ON p.per_id = pd.per_id
+INNER JOIN roles r ON r.rol_id = p.rol_id
+INNER JOIN direcciones d ON d.dir_id = pd.dir_id
+INNER JOIN municipios m ON m.mun_id = d.mun_id
+INNER JOIN departamentos dep ON dep.dep_id = m.dep_id
+WHERE r.nombre = 'CLIENTE'
+ORDER BY
+    p.per_id,
+    d.mun_id,
+    LOWER(TRIM(d.linea)),
+    d.dir_id DESC;
+
+-- =========================================================
+-- VISTA: PEDIDOS DEL CLIENTE
+-- =========================================================
+CREATE OR REPLACE VIEW vw_pedidos_cliente AS
+SELECT
+    v.ven_id,
+    v.per_id,
+    pe.nombre AS cliente,
+    v.fecha,
+    v.dir_id,
+    COALESCE(dir.linea, 'Sin dirección registrada') AS direccion_entrega,
+    COALESCE(m.nombre, 'Sin municipio') AS municipio,
+    COALESCE(dep.nombre, 'Sin departamento') AS departamento,
+    COALESCE(mp.nombre, 'Sin método de pago') AS metodo_pago,
+    COALESCE(SUM(d.cantidad), 0) AS unidades_compradas,
+    COALESCE(SUM(d.cantidad * d.precio_unitario), 0) AS total_venta,
+    COALESCE(pa.monto, 0) AS total_pagado
+FROM ventas v
+INNER JOIN personas pe ON pe.per_id = v.per_id
+LEFT JOIN detalle_ventas d ON d.ven_id = v.ven_id
+LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
+LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id
+LEFT JOIN direcciones dir ON dir.dir_id = v.dir_id
+LEFT JOIN municipios m ON m.mun_id = dir.mun_id
+LEFT JOIN departamentos dep ON dep.dep_id = m.dep_id
+GROUP BY
+    v.ven_id,
+    v.per_id,
+    pe.nombre,
+    v.fecha,
+    v.dir_id,
+    dir.linea,
+    m.nombre,
+    dep.nombre,
+    mp.nombre,
+    pa.monto;
+
+
+-- =========================================================
+-- VISTA: DETALLE DEL PEDIDO DEL CLIENTE
+-- =========================================================
+CREATE OR REPLACE VIEW vw_detalle_pedido_cliente AS
+SELECT
+    v.ven_id,
+    v.fecha,
+    v.per_id,
+    p.pro_id,
+    p.nombre AS producto,
+    p.imagen_url,
+    c.nombre AS categoria,
+    e.nombre AS estilo,
+    i.inv_id,
+    t.nombre AS talla,
+    co.nombre AS color,
+    d.cantidad,
+    d.precio_unitario,
+    d.cantidad * d.precio_unitario AS subtotal
+FROM detalle_ventas d
+INNER JOIN ventas v ON v.ven_id = d.ven_id
+INNER JOIN inventarios i ON i.inv_id = d.inv_id
+INNER JOIN productos p ON p.pro_id = i.pro_id
+INNER JOIN categorias c ON c.cat_id = p.cat_id
+INNER JOIN estilos e ON e.est_id = p.est_id
+INNER JOIN tallas t ON t.tal_id = i.tal_id
+INNER JOIN colores co ON co.col_id = i.col_id;
+
+
+-- =========================================================
+-- VISTAS PARAMÉTRICAS USADAS POR CLIENTE Y ADMINISTRADOR
+-- =========================================================
+
+CREATE OR REPLACE VIEW vw_categorias AS
+SELECT
+    cat_id AS id,
+    nombre
+FROM categorias
+ORDER BY nombre;
+
+
+CREATE OR REPLACE VIEW vw_estilos AS
+SELECT
+    est_id AS id,
+    nombre
+FROM estilos
+ORDER BY nombre;
+
+
+CREATE OR REPLACE VIEW vw_tallas AS
+SELECT
+    tal_id AS id,
+    nombre
+FROM tallas
+ORDER BY tal_id;
+
+
+CREATE OR REPLACE VIEW vw_colores AS
+SELECT
+    col_id AS id,
+    nombre
+FROM colores
+ORDER BY nombre;
+
+
+CREATE OR REPLACE VIEW vw_metodos_pago AS
+SELECT
+    met_id AS id,
+    nombre
+FROM metodos_pago
+ORDER BY nombre;
+
+
+CREATE OR REPLACE VIEW vw_departamentos AS
+SELECT
+    dep_id,
+    nombre
+FROM departamentos
+ORDER BY nombre;
+
+
+CREATE OR REPLACE VIEW vw_municipios AS
+SELECT
+    mun_id,
+    nombre,
+    dep_id
+FROM municipios
+ORDER BY nombre;
+
+
+
+
+
 -- =========================================================
 -- VISTA SIMPLE: INVENTARIO
 -- =========================================================
@@ -241,57 +481,8 @@ LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
 LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id;
 
 
--- =========================================================
--- VISTA: PEDIDOS DEL CLIENTE
--- =========================================================
-
-CREATE OR REPLACE VIEW vw_pedidos_cliente AS
-SELECT
-    v.ven_id,
-    v.per_id,
-    pe.nombre AS cliente,
-    v.fecha,
-    COALESCE(mp.nombre, 'Sin método de pago') AS metodo_pago,
-    COALESCE(SUM(d.cantidad * d.precio_unitario), 0) AS total_venta,
-    COALESCE(pa.monto, 0) AS total_pagado
-FROM ventas v
-INNER JOIN personas pe ON pe.per_id = v.per_id
-LEFT JOIN detalle_ventas d ON d.ven_id = v.ven_id
-LEFT JOIN pagos pa ON pa.ven_id = v.ven_id
-LEFT JOIN metodos_pago mp ON mp.met_id = pa.met_id
-GROUP BY
-    v.ven_id,
-    v.per_id,
-    pe.nombre,
-    v.fecha,
-    mp.nombre,
-    pa.monto;
 
 
--- =========================================================
--- VISTA: DETALLE DEL PEDIDO DEL CLIENTE
--- =========================================================
-
-CREATE OR REPLACE VIEW vw_detalle_pedido_cliente AS
-SELECT
-    v.ven_id,
-    v.fecha,
-    v.per_id,
-    p.pro_id,
-    p.nombre AS producto,
-    p.imagen_url,
-    i.inv_id,
-    t.nombre AS talla,
-    co.nombre AS color,
-    d.cantidad,
-    d.precio_unitario,
-    d.cantidad * d.precio_unitario AS subtotal
-FROM detalle_ventas d
-INNER JOIN ventas v ON v.ven_id = d.ven_id
-INNER JOIN inventarios i ON i.inv_id = d.inv_id
-INNER JOIN productos p ON p.pro_id = i.pro_id
-INNER JOIN tallas t ON t.tal_id = i.tal_id
-INNER JOIN colores co ON co.col_id = i.col_id;
 
 
 

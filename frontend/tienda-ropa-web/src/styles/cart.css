@@ -311,3 +311,9 @@
     text-align: left;
   }
 }
+
+.summary-row--only {
+  margin-top: 16px;
+  padding-top: 18px;
+  border-top: 1px solid #eadfce;
+}

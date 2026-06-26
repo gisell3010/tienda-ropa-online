@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { validarStockCarrito } from "../services/productosService";
+import { finalizarCompra } from "../services/checkoutService";
 import {
-  finalizarCompra,
+  listarDireccionesCliente,
   registrarDireccionCliente
-} from "../services/checkoutService";
+} from "../services/clienteService";
 import {
   listarDepartamentos,
   listarMunicipios
@@ -15,8 +16,6 @@ import "../styles/checkout.css";
 function CheckoutPage({ irACarrito, irACatalogo }) {
   const {
     carrito,
-    subtotalGeneral,
-    costoEnvio,
     totalCompra,
     mostrarNotificacion,
     vaciarCarrito
@@ -25,12 +24,11 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
   const { usuario, token } = useAuth();
 
   const [formulario, setFormulario] = useState({
-    nombreCompleto: "",
-    correo: "",
+    direccionModo: "existente",
+    direccionGuardadaId: "",
     departamentoId: "",
     municipioId: "",
     direccion: "",
-    telefono: "",
     metodoPago: "tarjeta",
     franquicia: "Visa",
     numeroTarjeta: "",
@@ -38,34 +36,76 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     vencimiento: "",
     cvv: "",
     banco: "",
-    tipoPersona: "Natural",
-    correoPse: ""
+    tipoPersona: "Natural"
   });
 
   const [mostrarPortalPse, setMostrarPortalPse] = useState(false);
   const [mensajeCheckout, setMensajeCheckout] = useState("");
   const [procesandoCompra, setProcesandoCompra] = useState(false);
   const [compraFinalizada, setCompraFinalizada] = useState(false);
-  const [numeroOrden, setNumeroOrden] = useState("");
   const [departamentos, setDepartamentos] = useState([]);
   const [municipios, setMunicipios] = useState([]);
+  const [direcciones, setDirecciones] = useState([]);
 
   const formatoCOP = (valor) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: "COP",
       maximumFractionDigits: 0
-    }).format(valor);
+    }).format(Number(valor) || 0);
+  };
+
+  const obtenerDepartamentoId = (departamento) => {
+    return departamento.id || departamento.depId || departamento.dep_id;
+  };
+
+  const obtenerMunicipioId = (municipio) => {
+    return municipio.id || municipio.munId || municipio.mun_id;
+  };
+
+  const obtenerDireccionId = (direccion) => {
+    return (
+      direccion.direccionId ||
+      direccion.dirId ||
+      direccion.dir_id ||
+      direccion.id
+    );
+  };
+
+  const obtenerNombreCliente = () => {
+    return usuario?.nombre || usuario?.name || "Cliente";
+  };
+
+  const obtenerCorreoCliente = () => {
+    return usuario?.correo || usuario?.email || "Correo no disponible";
   };
 
   useEffect(() => {
-    async function cargarDepartamentos() {
-      const data = await listarDepartamentos();
-      setDepartamentos(data);
+    async function cargarDatosIniciales() {
+      try {
+        const [departamentosData, direccionesData] = await Promise.all([
+          listarDepartamentos(),
+          listarDireccionesCliente(token)
+        ]);
+
+        setDepartamentos(departamentosData || []);
+        setDirecciones(direccionesData || []);
+
+        if (!direccionesData || direccionesData.length === 0) {
+          setFormulario((datosActuales) => ({
+            ...datosActuales,
+            direccionModo: "nueva"
+          }));
+        }
+      } catch (error) {
+        setMensajeCheckout(
+          error.message || "No se pudieron cargar los datos del checkout."
+        );
+      }
     }
 
-    cargarDepartamentos();
-  }, []);
+    cargarDatosIniciales();
+  }, [token]);
 
   useEffect(() => {
     async function cargarMunicipios() {
@@ -75,7 +115,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
       }
 
       const data = await listarMunicipios(formulario.departamentoId);
-      setMunicipios(data);
+      setMunicipios(data || []);
     }
 
     cargarMunicipios();
@@ -100,13 +140,17 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     });
   };
 
-  const validarDatosEnvio = () => {
-    if (!formulario.nombreCompleto.trim()) {
-      return "Ingresa el nombre completo.";
+  const validarDatosEntrega = () => {
+    if (formulario.direccionModo === "existente") {
+      if (!formulario.direccionGuardadaId) {
+        return "Selecciona una dirección guardada.";
+      }
+
+      return "";
     }
 
-    if (!formulario.correo.trim()) {
-      return "Ingresa el correo electrónico.";
+    if (!formulario.direccion.trim()) {
+      return "Ingresa la dirección de entrega.";
     }
 
     if (!formulario.departamentoId) {
@@ -115,14 +159,6 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
 
     if (!formulario.municipioId) {
       return "Selecciona el municipio.";
-    }
-
-    if (!formulario.direccion.trim()) {
-      return "Ingresa la dirección de entrega.";
-    }
-
-    if (!formulario.telefono.trim()) {
-      return "Ingresa el teléfono de contacto.";
     }
 
     return "";
@@ -138,7 +174,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     }
 
     if (!formulario.titular.trim()) {
-      return "Ingresa el nombre del titular.";
+      return "Ingresa el nombre del titular de la tarjeta.";
     }
 
     if (!formulario.vencimiento.trim()) {
@@ -158,21 +194,21 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
 
   const validarPse = () => {
     if (!formulario.banco.trim()) {
-      return "Selecciona el banco para pagar con PSE.";
+      return "Selecciona el banco para continuar con el pago";
     }
 
-    if (!formulario.correoPse.trim()) {
-      return "Ingresa el correo asociado al pago PSE.";
+    if (!formulario.tipoPersona.trim()) {
+      return "Selecciona el tipo de persona";
     }
 
     return "";
   };
 
   const validarFormulario = () => {
-    const errorEnvio = validarDatosEnvio();
+    const errorEntrega = validarDatosEntrega();
 
-    if (errorEnvio) {
-      return errorEnvio;
+    if (errorEntrega) {
+      return errorEntrega;
     }
 
     if (formulario.metodoPago === "tarjeta") {
@@ -180,6 +216,90 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     }
 
     return validarPse();
+  };
+
+  const obtenerPersonaId = () => {
+    return (
+      usuario?.id ||
+      usuario?.usuarioId ||
+      usuario?.clienteId ||
+      usuario?.perId ||
+      usuario?.per_id ||
+      usuario?.personaId
+    );
+  };
+
+  const obtenerDireccionParaCompra = async () => {
+    if (formulario.direccionModo === "existente") {
+      return Number(formulario.direccionGuardadaId);
+    }
+
+    const departamentoSeleccionado = departamentos.find(
+      (departamento) =>
+        String(obtenerDepartamentoId(departamento)) ===
+        String(formulario.departamentoId)
+    );
+
+    const municipioSeleccionado = municipios.find(
+      (municipio) =>
+        String(obtenerMunicipioId(municipio)) ===
+        String(formulario.municipioId)
+    );
+
+    if (!departamentoSeleccionado || !municipioSeleccionado) {
+      throw new Error("Selecciona una dirección de entrega válida.");
+    }
+
+    const normalizarTexto = (texto) => {
+      return String(texto || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+    };
+
+    const direccionNueva = normalizarTexto(formulario.direccion);
+    const municipioNuevo = String(formulario.municipioId || "").trim();
+
+    const direccionExistente = direcciones.find((direccion) => {
+      const textoExistente = normalizarTexto(
+        direccion.direccion || direccion.linea
+      );
+
+      const municipioExistente = String(
+        direccion.municipioId ||
+          direccion.munId ||
+          direccion.mun_id ||
+          ""
+      ).trim();
+
+      return (
+        textoExistente === direccionNueva &&
+        municipioExistente === municipioNuevo
+      );
+    });
+
+    if (direccionExistente) {
+      return Number(obtenerDireccionId(direccionExistente));
+    }
+
+    const direccionRegistrada = await registrarDireccionCliente(
+      {
+        direccion: formulario.direccion.trim(),
+        departamentoId: formulario.departamentoId,
+        municipioId: formulario.municipioId,
+        departamento: departamentoSeleccionado.nombre,
+        municipio: municipioSeleccionado.nombre
+      },
+      token
+    );
+
+    const direccionId = obtenerDireccionId(direccionRegistrada);
+
+    if (!direccionId) {
+      throw new Error("No se pudo obtener la dirección registrada.");
+    }
+
+    return Number(direccionId);
   };
 
   const finalizarCompraConBackend = async () => {
@@ -207,11 +327,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         return;
       }
 
-      const personaId =
-        usuario?.id ||
-        usuario?.perId ||
-        usuario?.per_id ||
-        usuario?.personaId;
+      const personaId = obtenerPersonaId();
 
       if (!personaId) {
         const mensaje =
@@ -222,39 +338,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         return;
       }
 
-      const departamentoSeleccionado = departamentos.find(
-        (departamento) => String(departamento.id) === String(formulario.departamentoId)
-      );
-
-      const municipioSeleccionado = municipios.find(
-        (municipio) => String(municipio.id) === String(formulario.municipioId)
-      );
-
-      if (!departamentoSeleccionado || !municipioSeleccionado) {
-        const mensaje = "Selecciona una dirección de entrega válida.";
-        setMensajeCheckout(mensaje);
-        mostrarNotificacion(mensaje, "error");
-        return;
-      }
-
-      const direccionRegistrada = await registrarDireccionCliente(
-        {
-          direccion: formulario.direccion.trim(),
-          departamento: departamentoSeleccionado.nombre,
-          municipio: municipioSeleccionado.nombre
-        },
-        token
-      );
-
-      const direccionId =
-        direccionRegistrada?.direccionId ||
-        direccionRegistrada?.dirId ||
-        direccionRegistrada?.dir_id ||
-        direccionRegistrada?.id;
-
-      if (!direccionId) {
-        throw new Error("No se pudo obtener la dirección registrada.");
-      }
+      const direccionId = await obtenerDireccionParaCompra();
 
       const datosCompra = {
         personaId: Number(personaId),
@@ -268,22 +352,21 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
 
       const respuestaCompra = await finalizarCompra(datosCompra, token);
 
-      const ordenGenerada =
+      const compraRegistrada =
         respuestaCompra?.ventaId ||
         respuestaCompra?.venId ||
-        respuestaCompra?.ven_id;
+        respuestaCompra?.ven_id ||
+        respuestaCompra?.datos;
 
-      if (!ordenGenerada) {
+      if (!compraRegistrada) {
         throw new Error(
           respuestaCompra?.mensaje ||
-            "La compra se procesó, pero el backend no devolvió el número de venta."
+            "La compra se procesó, pero el backend no confirmó el registro del pedido."
         );
       }
 
-      setNumeroOrden(ordenGenerada);
-
       setMensajeCheckout(
-        `¡Gracias por tu compra! Tu pedido ha sido registrado con éxito. Número de orden: ${ordenGenerada}.`
+        "¡Gracias por tu compra! Tu pedido fue registrado correctamente."
       );
 
       setCompraFinalizada(true);
@@ -356,9 +439,9 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
           <h1>Compra procesada con éxito</h1>
 
           <p>
-  Tu pedido fue procesado correctamente. Número de orden:
-  <strong> {numeroOrden}</strong>.
-</p>
+            Tu pedido fue registrado correctamente. Puedes consultar el detalle en
+            la sección <strong>Mis pedidos</strong>.
+          </p>
 
           <button onClick={irACatalogo}>Volver al catálogo</button>
         </section>
@@ -375,7 +458,8 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
           <h1>No tienes productos para pagar</h1>
 
           <p>
-            Agrega productos al carrito antes de continuar con el proceso de compra.
+            Agrega productos al carrito antes de continuar con el proceso de
+            compra.
           </p>
 
           <button onClick={irACatalogo}>Volver al catálogo</button>
@@ -388,92 +472,152 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
     <main className="checkout-page">
       <section className="checkout-header">
         <span className="checkout-header__label">Finalizar compra</span>
-        <h1>Datos de envío y pago</h1>
+        <h1>Entrega y pago</h1>
+        <p>
+          Confirma la dirección de entrega y selecciona el método de pago para
+          registrar tu pedido.
+        </p>
       </section>
 
       <section className="checkout-layout">
         <form className="checkout-form" onSubmit={manejarSubmit}>
+          <div className="checkout-card checkout-card--compact">
+            <div className="checkout-card__header">
+              <div>
+                <span>Comprador</span>
+                <h2>Datos de contacto</h2>
+              </div>
+            </div>
+
+            <div className="checkout-account-info">
+              <div>
+                <span>Nombre</span>
+                <strong>{obtenerNombreCliente()}</strong>
+              </div>
+
+              <div>
+                <span>Correo electrónico</span>
+                <strong>{obtenerCorreoCliente()}</strong>
+              </div>
+            </div>
+          </div>
+
           <div className="checkout-card">
-            <h2>Información de envío</h2>
+            <h2>Dirección de entrega</h2>
 
-            <div className="checkout-grid">
+            <div className="checkout-address-mode">
               <label>
-                Nombre completo
                 <input
-                  type="text"
-                  name="nombreCompleto"
-                  value={formulario.nombreCompleto}
+                  type="radio"
+                  name="direccionModo"
+                  value="existente"
+                  checked={formulario.direccionModo === "existente"}
                   onChange={actualizarCampo}
-                  placeholder="Ej: Laura Gómez"
+                  disabled={direcciones.length === 0}
                 />
+                Usar dirección guardada
               </label>
 
               <label>
-                Correo electrónico
                 <input
-                  type="email"
-                  name="correo"
-                  value={formulario.correo}
+                  type="radio"
+                  name="direccionModo"
+                  value="nueva"
+                  checked={formulario.direccionModo === "nueva"}
                   onChange={actualizarCampo}
-                  placeholder="correo@ejemplo.com"
                 />
-              </label>
-
-              <label className="checkout-grid__full">
-                Dirección de entrega
-                <input
-                  type="text"
-                  name="direccion"
-                  value={formulario.direccion}
-                  onChange={actualizarCampo}
-                  placeholder="Ej: Carrera 20 No. 11-78"
-                />
-              </label>
-
-              <label>
-                Departamento
-                <select
-                  name="departamentoId"
-                  value={formulario.departamentoId}
-                  onChange={actualizarCampo}
-                >
-                  <option value="">Selecciona un departamento</option>
-                  {departamentos.map((departamento) => (
-                    <option key={departamento.id} value={departamento.id}>
-                      {departamento.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Municipio
-                <select
-                  name="municipioId"
-                  value={formulario.municipioId}
-                  onChange={actualizarCampo}
-                  disabled={!formulario.departamentoId}
-                >
-                  <option value="">Selecciona un municipio</option>
-                  {municipios.map((municipio) => (
-                    <option key={municipio.id} value={municipio.id}>
-                      {municipio.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Teléfono
-                <input
-                  type="tel"
-                  name="telefono"
-                  value={formulario.telefono}
-                  onChange={actualizarCampo}
-                  placeholder="Ej: 3001234567"
-                />
+                Registrar nueva dirección
               </label>
             </div>
+
+            {formulario.direccionModo === "existente" && (
+              <div className="checkout-grid">
+                <label className="checkout-grid__full">
+                  Dirección guardada
+                  <select
+                    name="direccionGuardadaId"
+                    value={formulario.direccionGuardadaId}
+                    onChange={actualizarCampo}
+                  >
+                    <option value="">Selecciona una dirección</option>
+
+                    {direcciones.map((direccion) => {
+                      const direccionId = obtenerDireccionId(direccion);
+
+                      return (
+                        <option key={direccionId} value={direccionId}>
+                          {direccion.direccion || direccion.linea} -{" "}
+                          {direccion.municipio}, {direccion.departamento}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {formulario.direccionModo === "nueva" && (
+              <div className="checkout-grid">
+                <label className="checkout-grid__full">
+                  Dirección
+                  <input
+                    type="text"
+                    name="direccion"
+                    value={formulario.direccion}
+                    onChange={actualizarCampo}
+                    placeholder="Ej: Carrera 20 No. 11-78"
+                  />
+                </label>
+
+                <label>
+                  Departamento
+                  <select
+                    name="departamentoId"
+                    value={formulario.departamentoId}
+                    onChange={actualizarCampo}
+                  >
+                    <option value="">Selecciona un departamento</option>
+
+                    {departamentos.map((departamento) => {
+                      const departamentoId =
+                        obtenerDepartamentoId(departamento);
+
+                      return (
+                        <option key={departamentoId} value={departamentoId}>
+                          {departamento.nombre}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                <label>
+                  Municipio
+                  <select
+                    name="municipioId"
+                    value={formulario.municipioId}
+                    onChange={actualizarCampo}
+                    disabled={!formulario.departamentoId}
+                  >
+                    <option value="">
+                      {formulario.departamentoId
+                        ? "Selecciona un municipio"
+                        : "Primero selecciona un departamento"}
+                    </option>
+
+                    {municipios.map((municipio) => {
+                      const municipioId = obtenerMunicipioId(municipio);
+
+                      return (
+                        <option key={municipioId} value={municipioId}>
+                          {municipio.nombre}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="checkout-card">
@@ -481,11 +625,11 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
 
             <div className="payment-options">
               <label
-                className={
+                className={`payment-option ${
                   formulario.metodoPago === "tarjeta"
-                    ? "payment-option payment-option--active"
-                    : "payment-option"
-                }
+                    ? "payment-option--active"
+                    : ""
+                }`}
               >
                 <input
                   type="radio"
@@ -494,15 +638,13 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
                   checked={formulario.metodoPago === "tarjeta"}
                   onChange={actualizarCampo}
                 />
-                Tarjeta crédito / débito
+                Tarjeta
               </label>
 
               <label
-                className={
-                  formulario.metodoPago === "pse"
-                    ? "payment-option payment-option--active"
-                    : "payment-option"
-                }
+                className={`payment-option ${
+                  formulario.metodoPago === "pse" ? "payment-option--active" : ""
+                }`}
               >
                 <input
                   type="radio"
@@ -526,7 +668,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
                   >
                     <option value="Visa">Visa</option>
                     <option value="Mastercard">Mastercard</option>
-                    <option value="Amex">Amex</option>
+                    <option value="American Express">American Express</option>
                   </select>
                 </label>
 
@@ -607,17 +749,6 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
                     <option value="Jurídica">Jurídica</option>
                   </select>
                 </label>
-
-                <label className="checkout-grid__full">
-                  Correo PSE
-                  <input
-                    type="email"
-                    name="correoPse"
-                    value={formulario.correoPse}
-                    onChange={actualizarCampo}
-                    placeholder="correo@ejemplo.com"
-                  />
-                </label>
               </div>
             )}
           </div>
@@ -647,7 +778,7 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
         </form>
 
         <aside className="checkout-summary">
-          <h2>Resumen del pedido</h2>
+          <h2>Tu pedido</h2>
 
           <div className="checkout-summary__items">
             {carrito.map((item) => (
@@ -665,18 +796,8 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
             ))}
           </div>
 
-          <div className="checkout-summary__row">
-            <span>Subtotal</span>
-            <strong>{formatoCOP(subtotalGeneral)}</strong>
-          </div>
-
-          <div className="checkout-summary__row">
-            <span>Envío</span>
-            <strong>{formatoCOP(costoEnvio)}</strong>
-          </div>
-
-          <div className="checkout-summary__row checkout-summary__row--total">
-            <span>Total</span>
+          <div className="checkout-summary__row checkout-summary__row--total checkout-summary__row--only">
+            <span>Total a pagar</span>
             <strong>{formatoCOP(totalCompra)}</strong>
           </div>
         </aside>
@@ -685,22 +806,33 @@ function CheckoutPage({ irACarrito, irACatalogo }) {
       {mostrarPortalPse && (
         <div className="pse-modal">
           <div className="pse-modal__content">
-            <span className="pse-modal__label">Portal simulado PSE</span>
+            <span className="pse-modal__label">Pago PSE</span>
 
             <h2>{formulario.banco}</h2>
 
             <p>
-              Estás simulando el pago desde el banco seleccionado. Elige una
-              acción para continuar.
+              Confirma la información para continuar con el pago de tu pedido.
             </p>
+
+            <div className="pse-modal__summary">
+              <div>
+                <span>Comprador</span>
+                <strong>{obtenerNombreCliente()}</strong>
+              </div>
+
+              <div>
+                <span>Total a pagar</span>
+                <strong>{formatoCOP(totalCompra)}</strong>
+              </div>
+            </div>
 
             <div className="pse-modal__actions">
               <button className="pse-modal__approve" onClick={aprobarPse}>
-                Aprobar transacción
+                Confirmar pago
               </button>
 
               <button className="pse-modal__cancel" onClick={cancelarPse}>
-                Cancelar transacción
+                Cancelar
               </button>
             </div>
           </div>

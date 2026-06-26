@@ -6,10 +6,13 @@ import com.tienda.backend.dto.RegistroRequestDTO;
 import com.tienda.backend.dto.RolDTO;
 import com.tienda.backend.dto.UsuarioPerfilDTO;
 import com.tienda.backend.model.Persona;
-import com.tienda.backend.model.Rol;
 import com.tienda.backend.repository.PersonaRepository;
 import com.tienda.backend.repository.RolRepository;
 import com.tienda.backend.security.AuthTokenService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
+import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +29,9 @@ public class AuthService {
     private final RolRepository rolRepository;
     private final AuthTokenService authTokenService;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     public AuthService(
             PasswordEncoder passwordEncoder,
             PersonaRepository personaRepository,
@@ -38,87 +44,60 @@ public class AuthService {
         this.authTokenService = authTokenService;
     }
 
+    @Transactional
     public AuthResponseDTO registrarCliente(RegistroRequestDTO request) {
+        String correoNormalizado = request.getCorreo().trim().toLowerCase();
+        String contrasenaCifrada = passwordEncoder.encode(request.getPassword());
 
-        if (personaRepository.existsByCorreoIgnoreCase(request.getCorreo())) {
+        try {
+            Query query = entityManager.createNativeQuery("""
+                    CALL registrar_cliente(
+                        :nombre,
+                        :telefono,
+                        :correo,
+                        :contrasenaHash,
+                        :genero,
+                        :fechaNacimiento
+                    )
+                    """);
+
+            query.setParameter("nombre", request.getNombre());
+            query.setParameter("telefono", request.getTelefono());
+            query.setParameter("correo", correoNormalizado);
+            query.setParameter("contrasenaHash", contrasenaCifrada);
+            query.setParameter("genero", request.getGenero().trim().toUpperCase().substring(0, 1));
+            query.setParameter("fechaNacimiento", LocalDate.parse(request.getFechaNacimiento()));
+
+            query.executeUpdate();
+
+            Persona guardada = personaRepository.findByCorreoIgnoreCase(correoNormalizado)
+                    .orElseThrow(() -> new IllegalArgumentException("No se pudo consultar el cliente registrado"));
+
+            String token = authTokenService.generarToken(guardada);
+
+            return new AuthResponseDTO(
+                    guardada.getPerId().longValue(),
+                    guardada.getNombre(),
+                    guardada.getCorreo(),
+                    guardada.getRol().getNombre(),
+                    Boolean.TRUE.equals(guardada.getActivo()),
+                    true,
+                    "Cliente registrado correctamente",
+                    token
+            );
+
+        } catch (Exception e) {
             return new AuthResponseDTO(
                     null,
                     null,
-                    request.getCorreo(),
+                    correoNormalizado,
                     null,
                     false,
                     false,
-                    "El correo ya está registrado",
+                    limpiarMensajeBaseDatos(e),
                     null
             );
         }
-
-        Optional<Rol> rolCliente = rolRepository.findByNombreIgnoreCase("CLIENTE");
-
-        if (rolCliente.isEmpty()) {
-            return new AuthResponseDTO(
-                    null,
-                    null,
-                    null,
-                    null,
-                    false,
-                    false,
-                    "No existe el rol CLIENTE",
-                    null
-            );
-        }
-
-        if (request.getGenero() == null || request.getGenero().isBlank()) {
-            return new AuthResponseDTO(
-                    null,
-                    null,
-                    request.getCorreo(),
-                    null,
-                    false,
-                    false,
-                    "El género es obligatorio",
-                    null
-            );
-        }
-
-        if (request.getFechaNacimiento() == null || request.getFechaNacimiento().isBlank()) {
-            return new AuthResponseDTO(
-                    null,
-                    null,
-                    request.getCorreo(),
-                    null,
-                    false,
-                    false,
-                    "La fecha de nacimiento es obligatoria",
-                    null
-            );
-        }
-
-        Persona persona = new Persona();
-
-        persona.setNombre(request.getNombre().trim());
-        persona.setTelefono(request.getTelefono().trim());
-        persona.setCorreo(request.getCorreo().trim().toLowerCase());
-        persona.setContrasenaHash(passwordEncoder.encode(request.getPassword()));
-        persona.setGenero(request.getGenero().trim().toUpperCase().charAt(0));
-        persona.setFechaNacimiento(LocalDate.parse(request.getFechaNacimiento()));
-        persona.setActivo(true);
-        persona.setRol(rolCliente.get());
-
-        Persona guardada = personaRepository.save(persona);
-
-        String token = authTokenService.generarToken(guardada);
-
-        return new AuthResponseDTO(
-                guardada.getPerId().longValue(),
-                guardada.getNombre(),
-                guardada.getCorreo(),
-                guardada.getRol().getNombre(),
-                Boolean.TRUE.equals(guardada.getActivo()),
-                true,
-                "Cliente registrado correctamente",
-                token
-        );
     }
 
     public AuthResponseDTO login(LoginRequestDTO request) {
@@ -214,5 +193,19 @@ public class AuthService {
                         rol.getNombre()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    private String limpiarMensajeBaseDatos(Exception exception) {
+        String mensaje = exception.getMessage();
+
+        if (mensaje == null || mensaje.isBlank()) {
+            return "No se pudo completar la operación";
+        }
+
+        return mensaje
+                .replace("org.hibernate.exception.GenericJDBCException: JDBC exception executing SQL", "")
+                .replace("ERROR:", "")
+                .replace("Call getNextException to see other errors in the batch.", "")
+                .trim();
     }
 }

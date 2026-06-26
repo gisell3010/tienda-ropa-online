@@ -7,8 +7,6 @@ function CartPage({ irACatalogo, irACheckout }) {
     aumentarCantidad,
     disminuirCantidad,
     eliminarProducto,
-    subtotalGeneral,
-    costoEnvio,
     totalCompra
   } = useCart();
 
@@ -107,20 +105,10 @@ function CartPage({ irACatalogo, irACheckout }) {
         </div>
 
         <aside className="cart-summary">
-          <h2>Resumen de compra</h2>
+          <h2>Pago del pedido</h2>
 
-          <div className="summary-row">
-            <span>Subtotal</span>
-            <strong>{formatoCOP(subtotalGeneral)}</strong>
-          </div>
-
-          <div className="summary-row">
-            <span>Envío</span>
-            <strong>{formatoCOP(costoEnvio)}</strong>
-          </div>
-
-          <div className="summary-row summary-row--total">
-            <span>Total</span>
+          <div className="summary-row summary-row--total summary-row--only">
+            <span>Total a pagar</span>
             <strong>{formatoCOP(totalCompra)}</strong>
           </div>
 

@@ -3,6 +3,9 @@
 -- Proyecto: Tienda de ropa online
 -- =========================================================
 
+-- =========================================================
+-- FUNCIONES DEL CLIENTE
+-- =========================================================
 
 -- =========================================================
 -- FUNCIÓN: VALIDAR CORREO
@@ -201,7 +204,6 @@ $$;
 
 -- =========================================================
 -- PROCEDIMIENTO: ACTIVAR/DESACTIVAR USUSARIO
--- 
 -- =========================================================
 CREATE OR REPLACE PROCEDURE cambiar_estado_persona(
     p_per_id INT,
@@ -310,7 +312,70 @@ $$;
 
 
 
--- Registro público: siempre crea CLIENTE
+-- =========================================================
+-- FUNCIONES Y PROCEDIMIENTOS DEL CLIENTE
+-- =========================================================
+
+-- =========================================================
+-- FUNCIÓN CLIENTE: VALIDAR CLIENTE ACTIVO
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION fn_es_cliente_activo(
+    p_per_id INT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1
+        FROM personas p
+        INNER JOIN roles r ON r.rol_id = p.rol_id
+        WHERE p.per_id = p_per_id
+          AND p.activo = TRUE
+          AND r.nombre = 'CLIENTE'
+    );
+END;
+$$;
+
+
+-- =========================================================
+-- FUNCIÓN CLIENTE: TOTAL COMPRADO POR CLIENTE
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION fn_total_compras_cliente(
+    p_per_id INT
+)
+RETURNS NUMERIC(10,2)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_total NUMERIC(10,2);
+BEGIN
+    IF NOT fn_es_cliente_activo(p_per_id) THEN
+        RAISE EXCEPTION 'No existe un cliente activo con el identificador indicado';
+    END IF;
+
+    SELECT COALESCE(SUM(d.cantidad * d.precio_unitario), 0)
+    INTO v_total
+    FROM ventas v
+    INNER JOIN detalle_ventas d ON d.ven_id = v.ven_id
+    WHERE v.per_id = p_per_id;
+
+    RETURN v_total;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO CLIENTE: REGISTRAR CLIENTE
+-- REEMPLAZA el registrar_cliente(...) que ya tienes.
+-- =========================================================
+
 CREATE OR REPLACE PROCEDURE registrar_cliente(
     p_nombre VARCHAR,
     p_telefono VARCHAR,
@@ -320,6 +385,8 @@ CREATE OR REPLACE PROCEDURE registrar_cliente(
     p_fecha_nacimiento DATE
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_rol_cliente INT;
@@ -344,6 +411,303 @@ BEGIN
     );
 END;
 $$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO CLIENTE: ACTUALIZAR PERFIL
+-- No permite cambiar correo, contraseña ni rol desde el perfil.
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE actualizar_perfil_cliente(
+    p_per_id INT,
+    p_nombre VARCHAR,
+    p_telefono VARCHAR,
+    p_genero CHAR,
+    p_fecha_nacimiento DATE
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_telefono VARCHAR;
+    v_genero CHAR;
+    v_valida BOOLEAN;
+BEGIN
+    IF NOT fn_es_cliente_activo(p_per_id) THEN
+        RAISE EXCEPTION 'No existe un cliente activo con el identificador indicado';
+    END IF;
+
+    IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+        RAISE EXCEPTION 'El nombre es obligatorio';
+    END IF;
+
+    v_telefono := NULLIF(TRIM(p_telefono), '');
+
+    SELECT fn_validar_telefono(v_telefono)
+    INTO v_valida;
+
+    IF p_genero IS NULL OR UPPER(TRIM(p_genero::TEXT)) NOT IN ('M', 'F', 'O') THEN
+        RAISE EXCEPTION 'El género debe ser M, F u O';
+    END IF;
+
+    v_genero := UPPER(TRIM(p_genero::TEXT))::CHAR;
+
+    IF p_fecha_nacimiento IS NULL OR p_fecha_nacimiento >= CURRENT_DATE THEN
+        RAISE EXCEPTION 'La fecha de nacimiento no es válida';
+    END IF;
+
+    UPDATE personas
+    SET nombre = TRIM(p_nombre),
+        telefono = v_telefono,
+        genero = v_genero,
+        fecha_nacimiento = p_fecha_nacimiento
+    WHERE per_id = p_per_id;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO CLIENTE: REGISTRAR DIRECCIÓN
+-- La base valida cliente, municipio y evita duplicar la misma dirección.
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE registrar_direccion_cliente(
+    p_per_id INT,
+    p_mun_id CHAR(5),
+    p_linea VARCHAR
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_dir_id INT;
+    v_linea VARCHAR;
+BEGIN
+    IF NOT fn_es_cliente_activo(p_per_id) THEN
+        RAISE EXCEPTION 'No existe un cliente activo con el identificador indicado';
+    END IF;
+
+    IF p_mun_id IS NULL OR NOT EXISTS (
+        SELECT 1
+        FROM municipios
+        WHERE mun_id = p_mun_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el municipio indicado';
+    END IF;
+
+    v_linea := NULLIF(TRIM(p_linea), '');
+
+    IF v_linea IS NULL THEN
+        RAISE EXCEPTION 'La dirección es obligatoria';
+    END IF;
+
+    SELECT dir_id
+    INTO v_dir_id
+    FROM direcciones
+    WHERE mun_id = p_mun_id
+      AND LOWER(TRIM(linea)) = LOWER(v_linea)
+    LIMIT 1;
+
+    IF v_dir_id IS NULL THEN
+        INSERT INTO direcciones (mun_id, linea)
+        VALUES (p_mun_id, v_linea)
+        RETURNING dir_id INTO v_dir_id;
+    END IF;
+
+    INSERT INTO personas_direcciones (per_id, dir_id)
+    VALUES (p_per_id, v_dir_id)
+    ON CONFLICT (per_id, dir_id) DO NOTHING;
+END;
+$$;
+
+
+-- =========================================================
+-- PROCEDIMIENTO CLIENTE: ELIMINAR DIRECCIÓN DEL CLIENTE
+-- No borra la dirección física si ya fue usada en ventas.
+-- Solo elimina la relación persona-dirección.
+-- =========================================================
+
+CREATE OR REPLACE PROCEDURE eliminar_direccion_cliente(
+    p_per_id INT,
+    p_dir_id INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF NOT fn_es_cliente_activo(p_per_id) THEN
+        RAISE EXCEPTION 'No existe un cliente activo con el identificador indicado';
+    END IF;
+
+    IF p_dir_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la dirección';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM personas_direcciones
+        WHERE per_id = p_per_id
+          AND dir_id = p_dir_id
+    ) THEN
+        RAISE EXCEPTION 'La dirección indicada no está asociada al cliente';
+    END IF;
+
+    DELETE FROM personas_direcciones
+    WHERE per_id = p_per_id
+      AND dir_id = p_dir_id;
+END;
+$$;
+
+
+-- =========================================================
+-- FUNCIÓN CLIENTE: REALIZAR COMPRA CON CARRITO
+-- =========================================================
+CREATE OR REPLACE FUNCTION realizar_compra_carrito(
+    p_per_id INT,
+    p_met_id INT,
+    p_dir_id INT,
+    p_items JSONB
+)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_ven_id INT;
+    v_item JSONB;
+    v_inv_id INT;
+    v_cantidad INT;
+    v_stock INT;
+    v_precio NUMERIC(10,2);
+    v_total NUMERIC(10,2) := 0;
+BEGIN
+    IF NOT fn_es_cliente_activo(p_per_id) THEN
+        RAISE EXCEPTION 'Solo un cliente activo puede realizar compras';
+    END IF;
+
+    IF p_met_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar el método de pago';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM metodos_pago
+        WHERE met_id = p_met_id
+    ) THEN
+        RAISE EXCEPTION 'No existe el método de pago indicado';
+    END IF;
+
+    IF p_dir_id IS NULL THEN
+        RAISE EXCEPTION 'Debe indicar la dirección de entrega';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM personas_direcciones
+        WHERE per_id = p_per_id
+          AND dir_id = p_dir_id
+    ) THEN
+        RAISE EXCEPTION 'La dirección indicada no pertenece al cliente';
+    END IF;
+
+    IF p_items IS NULL
+       OR jsonb_typeof(p_items) <> 'array'
+       OR jsonb_array_length(p_items) = 0 THEN
+        RAISE EXCEPTION 'El carrito no puede estar vacío';
+    END IF;
+
+    -- Validación centralizada de inventario, producto activo, cantidad y stock.
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_inv_id := (v_item ->> 'inv_id')::INT;
+        v_cantidad := (v_item ->> 'cantidad')::INT;
+
+        IF v_inv_id IS NULL THEN
+            RAISE EXCEPTION 'Uno de los productos no tiene inventario indicado';
+        END IF;
+
+        IF v_cantidad IS NULL OR v_cantidad <= 0 THEN
+            RAISE EXCEPTION 'La cantidad de cada producto debe ser mayor que cero';
+        END IF;
+
+        SELECT i.stock, p.precio
+        INTO v_stock, v_precio
+        FROM inventarios i
+        INNER JOIN productos p ON p.pro_id = i.pro_id
+        WHERE i.inv_id = v_inv_id
+          AND p.activo = TRUE
+        FOR UPDATE OF i;
+
+        IF v_stock IS NULL THEN
+            RAISE EXCEPTION 'No existe el inventario % o el producto está inactivo', v_inv_id;
+        END IF;
+
+        IF v_stock <= 0 THEN
+            RAISE EXCEPTION 'El producto con inventario % está agotado', v_inv_id;
+        END IF;
+
+        IF v_stock < v_cantidad THEN
+            RAISE EXCEPTION 'Stock insuficiente para el inventario %', v_inv_id;
+        END IF;
+
+        v_total := v_total + (v_cantidad * v_precio);
+    END LOOP;
+
+    INSERT INTO ventas (per_id, dir_id)
+    VALUES (p_per_id, p_dir_id)
+    RETURNING ven_id INTO v_ven_id;
+
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_inv_id := (v_item ->> 'inv_id')::INT;
+        v_cantidad := (v_item ->> 'cantidad')::INT;
+
+        SELECT p.precio
+        INTO v_precio
+        FROM inventarios i
+        INNER JOIN productos p ON p.pro_id = i.pro_id
+        WHERE i.inv_id = v_inv_id;
+
+        INSERT INTO detalle_ventas (
+            ven_id,
+            inv_id,
+            cantidad,
+            precio_unitario
+        )
+        VALUES (
+            v_ven_id,
+            v_inv_id,
+            v_cantidad,
+            v_precio
+        );
+
+        UPDATE inventarios
+        SET stock = stock - v_cantidad
+        WHERE inv_id = v_inv_id;
+    END LOOP;
+
+    INSERT INTO pagos (
+        ven_id,
+        met_id,
+        monto
+    )
+    VALUES (
+        v_ven_id,
+        p_met_id,
+        v_total
+    );
+
+    RETURN v_ven_id;
+END;
+$$;
+
+
+
+
 
 -- Solo para uso administrativo
 CREATE OR REPLACE PROCEDURE registrar_usuario_admin(
@@ -385,167 +749,10 @@ BEGIN
 END;
 $$;
 
--- =========================================================
--- PROCEDIMIENTO: REALIZAR COMPRA CON CARRITO
--- Registra una venta con varios productos.
--- El cliente selecciona productos en el frontend,
--- el backend envía el carrito y la base de datos valida stock.
--- =========================================================
 
-CREATE OR REPLACE FUNCTION realizar_compra_carrito(
-    p_per_id INT,
-    p_met_id INT,
-    p_dir_id INT,
-    p_items JSONB
-)
-RETURNS INT
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_ven_id INT;
-    v_item JSONB;
-    v_inv_id INT;
-    v_cantidad INT;
-    v_stock INT;
-    v_precio NUMERIC(10,2);
-    v_total NUMERIC(10,2) := 0;
-BEGIN
-    IF p_per_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar la persona';
-    END IF;
 
-    IF p_met_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar el método de pago';
-    END IF;
 
-    IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
-        RAISE EXCEPTION 'El carrito no puede estar vacío';
-    END IF;
 
-    IF NOT EXISTS (
-        SELECT 1
-        FROM personas p
-        INNER JOIN roles r ON r.rol_id = p.rol_id
-        WHERE p.per_id = p_per_id
-          AND r.nombre = 'CLIENTE'
-    ) THEN
-        RAISE EXCEPTION 'Solo una persona con rol CLIENTE puede realizar compras';
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM metodos_pago
-        WHERE met_id = p_met_id
-    ) THEN
-        RAISE EXCEPTION 'No existe el método de pago indicado';
-    END IF;
-
-    IF p_dir_id IS NULL THEN
-        RAISE EXCEPTION 'Debe indicar la dirección de entrega';
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM personas_direcciones
-        WHERE per_id = p_per_id
-        AND dir_id = p_dir_id
-    ) THEN
-        RAISE EXCEPTION 'La dirección indicada no pertenece al cliente';
-    END IF;
-
-    -- Validación centralizada de inventario, cantidad y stock.
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        v_inv_id := (v_item ->> 'inv_id')::INT;
-        v_cantidad := (v_item ->> 'cantidad')::INT;
-
-        IF v_inv_id IS NULL THEN
-            RAISE EXCEPTION 'Uno de los productos no tiene inventario indicado';
-        END IF;
-
-        IF v_cantidad IS NULL OR v_cantidad <= 0 THEN
-            RAISE EXCEPTION 'La cantidad de cada producto debe ser mayor que cero';
-        END IF;
-
-        SELECT i.stock, p.precio
-        INTO v_stock, v_precio
-        FROM inventarios i
-        INNER JOIN productos p ON p.pro_id = i.pro_id
-        WHERE i.inv_id = v_inv_id
-          AND p.activo = TRUE
-        FOR UPDATE OF i;
-
-        IF v_stock IS NULL THEN
-            RAISE EXCEPTION 'No existe el inventario % o el producto está inactivo', v_inv_id;
-        END IF;
-
-        IF v_stock <= 0 THEN
-            RAISE EXCEPTION 'El producto con inventario % está agotado', v_inv_id;
-        END IF;
-
-        IF v_stock < v_cantidad THEN
-            RAISE EXCEPTION 'Stock insuficiente para el inventario %', v_inv_id;
-        END IF;
-
-        v_total := v_total + (v_cantidad * v_precio);
-    END LOOP;
-
-    -- La base crea la venta.
-    INSERT INTO ventas(per_id, dir_id)
-    VALUES (p_per_id, p_dir_id)
-    RETURNING ven_id INTO v_ven_id;
-
-    -- La base crea detalles y descuenta stock.
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        v_inv_id := (v_item ->> 'inv_id')::INT;
-        v_cantidad := (v_item ->> 'cantidad')::INT;
-
-        SELECT p.precio
-        INTO v_precio
-        FROM inventarios i
-        INNER JOIN productos p ON p.pro_id = i.pro_id
-        WHERE i.inv_id = v_inv_id;
-
-        INSERT INTO detalle_ventas(
-            ven_id,
-            inv_id,
-            cantidad,
-            precio_unitario
-        )
-        VALUES (
-            v_ven_id,
-            v_inv_id,
-            v_cantidad,
-            v_precio
-        );
-
-        UPDATE inventarios
-        SET stock = stock - v_cantidad
-        WHERE inv_id = v_inv_id;
-    END LOOP;
-
-    -- La base crea el pago.
-    INSERT INTO pagos(
-        ven_id,
-        met_id,
-        monto
-    )
-    VALUES (
-        v_ven_id,
-        p_met_id,
-        v_total
-    );
-
-    RETURN v_ven_id;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Error al realizar compra del carrito: %', SQLERRM;
-END;
-$$;
 
 -- =========================================================
 -- PROCEDIMIENTO: REGISTRAR PRODUCTO
